@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Crypto Monitor</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: rgba(16, 24, 48, 0.7);
+    --row: rgba(20, 30, 60, 0.6);
+    --row-hover-up: rgba(0, 255, 136, 0.1);
+    --row-hover-down: rgba(255, 65, 108, 0.1);
+    --text: #e8f4f8;
+    --dim: #8a9ba8;
+    --muted: #5a6a7a;
+    --green: #00ff88;
+    --red: #ff416c;
+    --accent: #00d4ff;
+    --border: rgba(0, 212, 255, 0.2);
+    --glow: rgba(0, 212, 255, 0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { font-size: 16px; }
+
+  body {
+    background: 
+      radial-gradient(ellipse at 20% 80%, rgba(0, 100, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(16, 24, 48, 0.8) 0%, transparent 70%),
+      linear-gradient(135deg, #0a0e1a 0%, #0d1429 50%, #0a0e1a 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 212, 255, 0.03) 2px, rgba(0, 212, 255, 0.03) 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: 
+      radial-gradient(circle at 30% 70%, rgba(0, 212, 255, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 70% 30%, rgba(0, 100, 255, 0.05) 0%, transparent 40%);
+    animation: bgRotate 120s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes bgRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .header { 
+    text-align: center; 
+    margin-bottom: 20px; 
+    position: relative;
+    z-index: 1;
+  }
+  .header h1 { 
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    margin-bottom: 6px; 
+    font-weight: 700;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
+  }
+  .header .sub { 
+    color: var(--dim); 
+    font-size: clamp(0.75rem, 1.5vw, 0.9rem);
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 600px;
+  }
+
+  .select-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+  }
+
+  .select-group:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 15px var(--glow);
+  }
+
+  .select-group label {
+    font-size: 0.75rem;
+    color: var(--dim);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .select-group select {
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    padding: 2px 4px;
+    min-width: 80px;
+  }
+
+  .select-group select option {
+    background: var(--bg);
+    color: var(--text);
+    padding: 8px;
+  }
+
+  .add-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 600px;
+    position: relative;
+    z-index: 1;
+  }
+  .add-bar input {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+  }
+  .add-bar input:focus { 
+    border-color: var(--accent); 
+    box-shadow: 0 0 15px var(--glow);
+  }
+  .add-bar input::placeholder { color: var(--muted); }
+  .add-bar button {
+    background: linear-gradient(135deg, var(--accent), #0088ff);
+    border: none;
+    color: #fff;
+    border-radius: 8px;
+    padding: 0 18px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+  }
+  .add-bar button:hover { 
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+  }
+
+  .table-container {
+    width: 100%;
+    max-width: 1200px;
+    overflow-x: auto;
+    position: relative;
+    z-index: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-container::-webkit-scrollbar {
+    height: 6px;
+  }
+  .table-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+  .table-container::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 3px;
+  }
+
+  .table-wrap {
+    min-width: 700px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    box-shadow: 
+      0 0 40px rgba(0, 100, 255, 0.1),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+    backdrop-filter: blur(20px);
+  }
+
+  .table-head, .table-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 0.9fr 0.9fr 1fr 0.8fr;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+  }
+  .table-head {
+    height: 44px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(0, 50, 100, 0.4);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .table-head span { 
+    text-align: right;
+    white-space: nowrap;
+  }
+  .table-head span:first-child { text-align: left; }
+  .table-row {
+    height: 60px;
+    background: var(--row);
+    border-bottom: 1px solid var(--border);
+    transition: all 0.3s;
+    position: relative;
+  }
+  .table-row:last-child { border-bottom: none; }
+  .table-row.up:hover { 
+    background: var(--row-hover-up);
+    box-shadow: inset 0 0 20px rgba(0, 255, 136, 0.1);
+  }
+  .table-row.down:hover { 
+    background: var(--row-hover-down);
+    box-shadow: inset 0 0 20px rgba(255, 65, 108, 0.1);
+  }
+
+  .coin-info { 
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .coin-sym { 
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .coin-name { 
+    font-size: 0.7rem;
+    color: var(--dim);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .coin-price, .coin-high, .coin-low, .coin-vol {
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .coin-price { color: var(--text); }
+  .coin-high { color: var(--green); }
+  .coin-low { color: var(--red); }
+  .coin-vol { 
+    color: var(--dim);
+    font-size: 0.8rem;
+  }
+  .coin-change {
+    text-align: right;
+    font-size: 0.88rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .remove-btn {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    opacity: 0;
+    transition: all 0.3s;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+  .table-row:hover .remove-btn { opacity: 1; }
+  .remove-btn:hover { 
+    color: var(--red);
+    background: rgba(255, 65, 108, 0.15);
+  }
+
+  .empty { 
+    color: var(--dim);
+    font-size: 0.9rem;
+    margin-top: 40px;
+    text-align: center;
+  }
+
+  .footer { 
+    margin-top: 28px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .dot { 
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .dot.live { 
+    background: var(--green);
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 12px var(--green);
+  }
+  .dot.error { 
+    background: var(--red);
+    box-shadow: 0 0 12px var(--red);
+  }
+  @keyframes pulse { 
+    0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--green); }
+    50% { opacity: 0.4; box-shadow: 0 0 4px var(--green); }
+  }
+
+  @media (min-width: 1024px) {
+    body { padding: 40px 24px; }
+    .controls { max-width: 800px; }
+    .add-bar { max-width: 500px; }
+    .table-head, .table-row {
+      padding: 0 24px;
+      gap: 16px;
+    }
+    .table-head { height: 50px; font-size: 0.78rem; }
+    .table-row { height: 68px; }
+    .coin-sym { font-size: 1.05rem; }
+    .coin-name { font-size: 0.75rem; }
+    .coin-price, .coin-high, .coin-low, .coin-vol { font-size: 0.92rem; }
+    .coin-change { font-size: 0.95rem; }
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .table-head, .table-row {
+      padding: 0 20px;
+      gap: 12px;
+    }
+    .coin-sym { font-size: 1rem; }
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 16px 12px; }
+    .header { margin-bottom: 16px; }
+    .controls { gap: 8px; }
+    .select-group {
+      padding: 5px 10px;
+      flex: 1;
+      min-width: 140px;
+    }
+    .select-group label { font-size: 0.7rem; }
+    .select-group select { font-size: 0.8rem; min-width: 60px; }
+    .add-bar { margin-bottom: 16px; }
+    .add-bar input { padding: 8px 12px; font-size: 0.85rem; }
+    .add-bar button { padding: 0 14px; font-size: 0.85rem; }
+    .table-head, .table-row { padding: 0 12px; gap: 6px; }
+    .table-head { height: 38px; font-size: 0.65rem; }
+    .table-row { height: 56px; }
+    .coin-sym { font-size: 0.88rem; }
+    .coin-name { font-size: 0.65rem; }
+    .coin-price, .coin-high, .coin-low, .coin-vol { font-size: 0.78rem; }
+    .coin-change { font-size: 0.8rem; }
+    .remove-btn { opacity: 1; left: 2px; font-size: 0.75rem; }
+    .footer { margin-top: 20px; font-size: 0.68rem; }
+  }
+
+  @media (max-width: 360px) {
+    .table-head, .table-row { padding: 0 8px; gap: 4px; }
+    .table-head { font-size: 0.6rem; }
+    .coin-sym { font-size: 0.82rem; }
+    .coin-price, .coin-high, .coin-low, .coin-vol { font-size: 0.72rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CRYPTO MONITOR</h1>
+  <div class="sub" id="subText">实时行情监控系统</div>
+</div>
+
+<div class="controls">
+  <div class="select-group">
+    <label>交易所</label>
+    <select id="apiSelect" onchange="pickApi(this.value)">
+      <option value="-1">自动选择</option>
+    </select>
+  </div>
+  <div class="select-group">
+    <label>刷新间隔</label>
+    <select id="refreshSelect" onchange="setInterval_(parseInt(this.value))">
+      <option value="10">10秒</option>
+      <option value="30">30秒</option>
+      <option value="60">1分钟</option>
+      <option value="300">5分钟</option>
+    </select>
+  </div>
+</div>
+
+<div class="add-bar">
+  <input id="input" type="text" placeholder="输入币种代码添加，如 BTC、DOGE、WLFI…" autocomplete="off">
+  <button onclick="addFromInput()">添加</button>
+</div>
+
+<div class="table-container">
+  <div class="table-wrap">
+    <div class="table-head">
+      <span>币种</span>
+      <span>最新价</span>
+      <span>24h最高</span>
+      <span>24h最低</span>
+      <span>24h成交额</span>
+      <span>涨跌幅</span>
+    </div>
+    <div id="rows"></div>
+  </div>
+</div>
+
+<div class="empty" id="empty" style="display:none">暂无自选币种</div>
+
+<div class="footer">
+  <span class="dot live" id="dot"></span>
+  <span id="status">系统初始化中…</span>
+</div>
+
+<script>
+const APIS = [
+  { name: 'Gate.io',  price: s => `https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${s}_USDT`, parse: d => { const v = Array.isArray(d)?d[0]:null; return v ? {p:parseFloat(v.last),h:parseFloat(v.high_24h)||0,l:parseFloat(v.low_24h)||0,v:parseFloat(v.quote_volume_24h)||0,c:parseFloat(v.change_percentage)||0} : null; } },
+  { name: 'Binance',  price: s => `https://api.binance.com/api/v3/ticker/24hr?symbol=${s}USDT`, parse: d => d?.lastPrice ? {p:parseFloat(d.lastPrice),h:parseFloat(d.highPrice)||0,l:parseFloat(d.lowPrice)||0,v:parseFloat(d.quoteVolume)||0,c:parseFloat(d.priceChangePercent)||0} : null },
+  { name: 'OKX',      price: s => `https://www.okx.com/api/v5/market/ticker?instId=${s}-USDT`, parse: d => { const v=d?.data?.[0]; if(!v)return null; const l=parseFloat(v.last),o=parseFloat(v.open24h); return {p:l,h:parseFloat(v.high24h)||0,l:parseFloat(v.low24h)||0,v:parseFloat(v.volCcy24h)||0,c:o?((l-o)/o*100):0}; } },
+  { name: 'MEXC',     price: s => `https://api.mexc.com/api/v3/ticker/24hr?symbol=${s}USDT`, parse: d => d?.lastPrice ? {p:parseFloat(d.lastPrice),h:parseFloat(d.highPrice)||0,l:parseFloat(d.lowPrice)||0,v:parseFloat(d.quoteVolume)||0,c:parseFloat(d.priceChangePercent)||0} : null },
+  { name: 'Bitget',   price: s => `https://api.bitget.com/api/v2/spot/market/tickers?symbol=${s}USDT`, parse: d => { const v=d?.data?.[0]; return v ? {p:parseFloat(v.lastPr),h:parseFloat(v.high24h)||0,l:parseFloat(v.low24h)||0,v:parseFloat(v.usdtVolume)||0,c:parseFloat(v.change24h)||0} : null; } },
+  { name: 'HTX',      price: s => `https://api.huobi.pro/market/detail/merged?symbol=${s.toLowerCase()}usdt`, parse: d => { const v=d?.tick; if(!v)return null; return {p:v.close,h:v.high||0,l:v.low||0,v:v.vol||0,c:v.open?((v.close-v.open)/v.open*100):0}; } },
+];
+
+const DEFAULT_COINS = [
+  { symbol: 'BTC', name: 'Bitcoin' },
+  { symbol: 'ETH', name: 'Ethereum' },
+  { symbol: 'WLFI', name: 'World Liberty Financial' },
+];
+
+let coins = loadCoins();
+let activeApi = parseInt(localStorage.getItem('crypto_api') || '-1');
+let workingApi = null;
+let refreshSec = parseInt(localStorage.getItem('crypto_refresh') || '30');
+let timer = null;
+
+function loadCoins() { try { const s=localStorage.getItem('crypto_coins_v4'); if(s)return JSON.parse(s); } catch{} return DEFAULT_COINS.map(c=>({...c})); }
+function saveCoins() { localStorage.setItem('crypto_coins_v4', JSON.stringify(coins)); }
+
+function fmt(n) {
+  if (n==null||isNaN(n)) return '—';
+  return n >= 1 ? n.toLocaleString('en-US',{minimumFractionDigits:2,maximumDigits:2})
+    : n < 0.01 ? n.toFixed(6) : n.toFixed(4);
+}
+
+function fmtVol(n) {
+  if (n==null||isNaN(n)||n===0) return '—';
+  if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(2) + 'K';
+  return n.toFixed(2);
+}
+
+function initSelects() {
+  const apiSelect = document.getElementById('apiSelect');
+  APIS.forEach((api, i) => {
+    const option = document.createElement('option');
+    option.value = i;
+    option.textContent = api.name;
+    apiSelect.appendChild(option);
+  });
+  apiSelect.value = activeApi;
+
+  const refreshSelect = document.getElementById('refreshSelect');
+  refreshSelect.value = refreshSec;
+}
+
+function pickApi(i) {
+  activeApi = parseInt(i);
+  localStorage.setItem('crypto_api', activeApi);
+  workingApi = null;
+  fetchPrices();
+}
+
+function render() {
+  const el = document.getElementById('rows');
+  const emp = document.getElementById('empty');
+  if (!coins.length) { el.innerHTML=''; emp.style.display=''; return; }
+  emp.style.display='none';
+  el.innerHTML = coins.map((c,i) => {
+    const sym = c.symbol;
+    return `<div class="table-row" id="row-${sym}">
+      <button class="remove-btn" onclick="removeCoin(${i})" title="移除">✕</button>
+      <div class="coin-info">
+        <span class="coin-sym">${sym}</span>
+        <span class="coin-name">${c.name||''}</span>
+      </div>
+      <div class="coin-price" id="p-${sym}">—</div>
+      <div class="coin-high" id="h-${sym}">—</div>
+      <div class="coin-low" id="l-${sym}">—</div>
+      <div class="coin-vol" id="v-${sym}">—</div>
+      <div class="coin-change" id="c-${sym}">—</div>
+    </div>`;
+  }).join('');
+}
+
+function addCoin(sym, name) {
+  sym = sym.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if (!sym || coins.find(c=>c.symbol===sym)) return;
+  coins.push({symbol:sym, name:name||sym}); saveCoins(); render(); fetchPrices();
+}
+function removeCoin(i) { coins.splice(i,1); saveCoins(); render(); fetchPrices(); }
+function addFromInput() {
+  const v = document.getElementById('input').value.trim();
+  if (v) { addCoin(v); document.getElementById('input').value=''; }
+}
+document.getElementById('input').addEventListener('keydown', e => { if(e.key==='Enter') addFromInput(); });
+
+function fetchTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), ms);
+  return fetch(url,{signal:ctrl.signal}).finally(()=>clearTimeout(t));
+}
+
+async function tryApi(api, sym) {
+  const r = await fetchTimeout(api.price(sym), 6000);
+  if (!r.ok) throw new Error(r.status);
+  const d = await r.json();
+  const res = api.parse(d);
+  if (!res) throw new Error('no data');
+  return res;
+}
+
+async function fetchPrices() {
+  if (!coins.length) { setStatus('live','无币种'); return; }
+
+  let list;
+  if (activeApi === -1) {
+    list = workingApi !== null
+      ? [APIS[workingApi], ...APIS.filter((_,i)=>i!==workingApi)]
+      : [...APIS];
+  } else { list = [APIS[activeApi]]; }
+
+  let ok = 0;
+  await Promise.allSettled(coins.map(async c => {
+    for (const api of list) {
+      try {
+        const {p,h,l,v,c:ch} = await tryApi(api, c.symbol);
+        const pEl = document.getElementById('p-'+c.symbol);
+        const hEl = document.getElementById('h-'+c.symbol);
+        const lEl = document.getElementById('l-'+c.symbol);
+        const vEl = document.getElementById('v-'+c.symbol);
+        const cEl = document.getElementById('c-'+c.symbol);
+        const row = document.getElementById('row-'+c.symbol);
+        if (pEl) pEl.textContent = '$'+fmt(p);
+        if (hEl) hEl.textContent = h ? '$'+fmt(h) : '—';
+        if (lEl) lEl.textContent = l ? '$'+fmt(l) : '—';
+        if (vEl) vEl.textContent = fmtVol(v);
+        if (cEl) { cEl.textContent = (ch>=0?'+':'')+ch.toFixed(2)+'%'; cEl.style.color = ch>=0 ? 'var(--green)' : 'var(--red)'; }
+        if (row) { row.className = 'table-row ' + (ch>=0?'up':'down'); }
+        if (activeApi===-1 && workingApi===null) workingApi = APIS.indexOf(api);
+        ok++; return;
+      } catch {}
+    }
+    const pEl=document.getElementById('p-'+c.symbol), hEl=document.getElementById('h-'+c.symbol), lEl=document.getElementById('l-'+c.symbol), vEl=document.getElementById('v-'+c.symbol), cEl=document.getElementById('c-'+c.symbol);
+    if(pEl) pEl.textContent='—'; if(hEl) hEl.textContent='—'; if(lEl) lEl.textContent='—'; if(vEl) vEl.textContent='—'; if(cEl){cEl.textContent='失败'; cEl.style.color='var(--muted)';}
+  }));
+
+  const name = (activeApi===-1 && workingApi!==null) ? APIS[workingApi].name : APIS[Math.max(0,activeApi)].name;
+  if (ok) setStatus('live', `${name} · ${ok}/${coins.length} · ${new Date().toLocaleTimeString('zh-CN')}`);
+  else { workingApi=null; setStatus('error','全部失败 — 30s 后重试'); }
+}
+
+function setStatus(t,m) { document.getElementById('dot').className='dot '+t; document.getElementById('status').textContent=m; }
+
+function setInterval_(sec) {
+  refreshSec = sec;
+  localStorage.setItem('crypto_refresh', sec);
+  clearInterval(timer);
+  timer = setInterval(fetchPrices, sec * 1000);
+  const subText = refreshSec >= 60
+    ? `每 ${refreshSec/60} 分钟自动刷新`
+    : `每 ${refreshSec} 秒自动刷新`;
+  document.getElementById('subText').textContent = subText;
+  fetchPrices();
+}
+
+initSelects();
+render();
+fetchPrices();
+timer = setInterval(fetchPrices, refreshSec * 1000);
+</script>
+</body>
+</html>
