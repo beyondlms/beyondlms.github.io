@@ -438,9 +438,9 @@
 
 <div class="controls">
   <div class="select-group">
-    <label>交易所</label>
+    <label>优先交易所</label>
     <select id="apiSelect" onchange="pickApi(this.value)">
-      <option value="-1">自动选择</option>
+      <option value="-1">自动 (逐币探测)</option>
     </select>
   </div>
   <div class="select-group">
@@ -498,12 +498,15 @@ const DEFAULT_COINS = [
 
 let coins = loadCoins();
 let activeApi = parseInt(localStorage.getItem('crypto_api') || '-1');
-let workingApi = null;
+// Per-coin API preference: { 'BNB': 1, 'BGB': 4, ... }  (index into APIS)
+let coinApiMap = loadCoinApiMap();
 let refreshSec = parseInt(localStorage.getItem('crypto_refresh') || '30');
 let timer = null;
 
 function loadCoins() { try { const s=localStorage.getItem('crypto_coins_v4'); if(s)return JSON.parse(s); } catch{} return DEFAULT_COINS.map(c=>({...c})); }
 function saveCoins() { localStorage.setItem('crypto_coins_v4', JSON.stringify(coins)); }
+function loadCoinApiMap() { try { const s=localStorage.getItem('crypto_coin_api'); if(s)return JSON.parse(s); } catch{} return {}; }
+function saveCoinApiMap() { localStorage.setItem('crypto_coin_api', JSON.stringify(coinApiMap)); }
 
 function fmt(n) {
   if (n==null||isNaN(n)) return '—';
@@ -536,7 +539,11 @@ function initSelects() {
 function pickApi(i) {
   activeApi = parseInt(i);
   localStorage.setItem('crypto_api', activeApi);
-  workingApi = null;
+  // When user picks a specific exchange, update all coins' preference
+  if (activeApi >= 0) {
+    coins.forEach(c => { coinApiMap[c.symbol] = activeApi; });
+    saveCoinApiMap();
+  }
   fetchPrices();
 }
 
@@ -547,10 +554,12 @@ function render() {
   emp.style.display='none';
   el.innerHTML = coins.map((c,i) => {
     const sym = c.symbol;
+    const apiIdx = coinApiMap[sym];
+    const apiTag = apiIdx != null && APIS[apiIdx] ? ` <span style="font-size:0.6rem;color:var(--muted);opacity:0.6">(${APIS[apiIdx].name})</span>` : '';
     return `<div class="table-row" id="row-${sym}">
       <button class="remove-btn" onclick="removeCoin(${i})" title="移除">✕</button>
       <div class="coin-info">
-        <span class="coin-sym">${sym}</span>
+        <span class="coin-sym">${sym}${apiTag}</span>
         <span class="coin-name">${c.name||''}</span>
       </div>
       <div class="coin-price" id="p-${sym}">—</div>
@@ -565,9 +574,12 @@ function render() {
 function addCoin(sym, name) {
   sym = sym.toUpperCase().replace(/[^A-Z0-9]/g,'');
   if (!sym || coins.find(c=>c.symbol===sym)) return;
-  coins.push({symbol:sym, name:name||sym}); saveCoins(); render(); fetchPrices();
+  coins.push({symbol:sym, name:name||sym}); saveCoins();
+  // If user has a specific exchange selected, pre-assign it
+  if (activeApi >= 0) { coinApiMap[sym] = activeApi; saveCoinApiMap(); }
+  render(); fetchPrices();
 }
-function removeCoin(i) { coins.splice(i,1); saveCoins(); render(); fetchPrices(); }
+function removeCoin(i) { const sym=coins[i].symbol; delete coinApiMap[sym]; saveCoinApiMap(); coins.splice(i,1); saveCoins(); render(); fetchPrices(); }
 function addFromInput() {
   const v = document.getElementById('input').value.trim();
   if (v) { addCoin(v); document.getElementById('input').value=''; }
@@ -592,15 +604,25 @@ async function tryApi(api, sym) {
 async function fetchPrices() {
   if (!coins.length) { setStatus('live','无币种'); return; }
 
-  let list;
-  if (activeApi === -1) {
-    list = workingApi !== null
-      ? [APIS[workingApi], ...APIS.filter((_,i)=>i!==workingApi)]
-      : [...APIS];
-  } else { list = [APIS[activeApi]]; }
-
   let ok = 0;
+  const usedApis = new Set();
+
   await Promise.allSettled(coins.map(async c => {
+    // Build the ordered list of APIs to try for this coin
+    let list;
+    const prefIdx = coinApiMap[c.symbol];
+
+    if (activeApi >= 0) {
+      // User chose a specific exchange — try it first, then fallback to others
+      list = [APIS[activeApi], ...APIS.filter((_,i) => i !== activeApi)];
+    } else if (prefIdx != null && APIS[prefIdx]) {
+      // This coin has a previously saved working exchange — try it first
+      list = [APIS[prefIdx], ...APIS.filter((_,i) => i !== prefIdx)];
+    } else {
+      // No preference — try all APIs in order
+      list = [...APIS];
+    }
+
     for (const api of list) {
       try {
         const {p,h,l,v,c:ch} = await tryApi(api, c.symbol);
@@ -616,17 +638,29 @@ async function fetchPrices() {
         if (vEl) vEl.textContent = fmtVol(v);
         if (cEl) { cEl.textContent = (ch>=0?'+':'')+ch.toFixed(2)+'%'; cEl.style.color = ch>=0 ? 'var(--green)' : 'var(--red)'; }
         if (row) { row.className = 'table-row ' + (ch>=0?'up':'down'); }
-        if (activeApi===-1 && workingApi===null) workingApi = APIS.indexOf(api);
+
+        // Remember which exchange worked for this coin
+        const apiIdx = APIS.indexOf(api);
+        if (coinApiMap[c.symbol] !== apiIdx) {
+          coinApiMap[c.symbol] = apiIdx;
+          saveCoinApiMap();
+        }
+        usedApis.add(api.name);
         ok++; return;
       } catch {}
     }
+    // All exchanges failed for this coin
     const pEl=document.getElementById('p-'+c.symbol), hEl=document.getElementById('h-'+c.symbol), lEl=document.getElementById('l-'+c.symbol), vEl=document.getElementById('v-'+c.symbol), cEl=document.getElementById('c-'+c.symbol);
     if(pEl) pEl.textContent='—'; if(hEl) hEl.textContent='—'; if(lEl) lEl.textContent='—'; if(vEl) vEl.textContent='—'; if(cEl){cEl.textContent='失败'; cEl.style.color='var(--muted)';}
   }));
 
-  const name = (activeApi===-1 && workingApi!==null) ? APIS[workingApi].name : APIS[Math.max(0,activeApi)].name;
-  if (ok) setStatus('live', `${name} · ${ok}/${coins.length} · ${new Date().toLocaleTimeString('zh-CN')}`);
-  else { workingApi=null; setStatus('error','全部失败 — 30s 后重试'); }
+  // Build status text showing which exchanges were used
+  const apiNames = [...usedApis].join(' / ');
+  if (ok) {
+    setStatus('live', `${apiNames || 'OK'} · ${ok}/${coins.length} · ${new Date().toLocaleTimeString('zh-CN')}`);
+  } else {
+    setStatus('error','全部失败 — '+refreshSec+'s 后重试');
+  }
 }
 
 function setStatus(t,m) { document.getElementById('dot').className='dot '+t; document.getElementById('status').textContent=m; }
