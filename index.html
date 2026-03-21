@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -191,6 +192,242 @@
     box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
   }
 
+  /* 热搜币种区域 */
+  .trending-section {
+    width: 100%;
+    max-width: 800px;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+  }
+  .trending-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .trending-header .fire {
+    font-size: 1.1rem;
+    animation: firePulse 2s ease-in-out infinite;
+  }
+  @keyframes firePulse {
+    0%, 100% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+    50% { transform: scale(1.15) rotate(-5deg); filter: brightness(1.3); }
+  }
+  .trending-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .trending-count {
+    font-size: 0.65rem;
+    color: var(--muted);
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.15);
+    border-radius: 10px;
+    padding: 2px 8px;
+  }
+  .trending-refresh {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-size: 0.68rem;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .trending-refresh:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0, 212, 255, 0.06);
+  }
+
+  .trending-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .trending-group {
+    background: linear-gradient(135deg, rgba(16, 24, 48, 0.5) 0%, rgba(10, 18, 40, 0.4) 100%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    backdrop-filter: blur(15px);
+    transition: border-color 0.3s;
+  }
+  .trending-group:hover {
+    border-color: rgba(0, 212, 255, 0.35);
+  }
+  .trending-group-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .trending-group-label::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .trending-group.hot .trending-group-label::before {
+    background: linear-gradient(180deg, #ff416c, #ff4b2b);
+  }
+  .trending-group.top .trending-group-label::before {
+    background: linear-gradient(180deg, #00d4ff, #0088ff);
+  }
+  .trending-group.gainers .trending-group-label::before {
+    background: linear-gradient(180deg, #00ff88, #00cc6a);
+  }
+
+  .trending-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .trending-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(20, 30, 60, 0.5);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    border-radius: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .trending-tag::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.05) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .trending-tag:hover::before { opacity: 1; }
+  .trending-tag:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(0, 212, 255, 0.2), inset 0 0 20px rgba(0, 212, 255, 0.03);
+    transform: translateY(-2px);
+  }
+  .trending-tag:active {
+    transform: translateY(0) scale(0.97);
+  }
+  .trending-tag.added {
+    border-color: rgba(0, 255, 136, 0.4);
+    background: rgba(0, 255, 136, 0.06);
+    cursor: pointer;
+  }
+  .trending-tag.added:hover {
+    border-color: var(--red);
+    box-shadow: 0 0 16px rgba(255, 65, 108, 0.2);
+  }
+  .trending-tag.added:hover::before {
+    background: linear-gradient(135deg, rgba(255, 65, 108, 0.06) 0%, transparent 100%);
+    opacity: 1;
+  }
+  .trending-tag .tag-rank {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.15);
+    border-radius: 4px;
+    padding: 1px 5px;
+    min-width: 20px;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+  .trending-tag .tag-sym {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+  .trending-tag .tag-name {
+    font-size: 0.62rem;
+    color: var(--muted);
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .trending-tag .tag-change {
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .trending-tag .tag-change.up {
+    color: var(--green);
+    background: rgba(0, 255, 136, 0.1);
+  }
+  .trending-tag .tag-change.down {
+    color: var(--red);
+    background: rgba(255, 65, 108, 0.1);
+  }
+  .trending-tag .tag-action {
+    font-size: 0.85rem;
+    transition: all 0.25s;
+    opacity: 0;
+    flex-shrink: 0;
+  }
+  .trending-tag:hover .tag-action { opacity: 1; }
+  .trending-tag .tag-action.add-icon { color: var(--accent); }
+  .trending-tag .tag-action.remove-icon { color: var(--red); }
+  .trending-tag.added .tag-action { opacity: 1; color: var(--green); }
+  .trending-tag.added:hover .tag-action { color: var(--red); }
+
+  .trending-loading {
+    color: var(--dim);
+    font-size: 0.8rem;
+    padding: 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .trending-loading .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 212, 255, 0.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .trending-err {
+    color: var(--muted);
+    font-size: 0.78rem;
+    padding: 10px 0;
+  }
+
+  @media (max-width: 480px) {
+    .trending-section { margin-bottom: 16px; }
+    .trending-group { padding: 10px 12px; }
+    .trending-tag { padding: 5px 9px; gap: 4px; }
+    .trending-tag .tag-sym { font-size: 0.76rem; }
+    .trending-tag .tag-rank { font-size: 0.52rem; }
+    .trending-tag .tag-change { font-size: 0.62rem; }
+    .trending-tag .tag-name { max-width: 50px; font-size: 0.56rem; }
+  }
+
   .table-container {
     width: 100%;
     max-width: 1200px;
@@ -283,6 +520,31 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .api-badge {
+    display: inline-block;
+    font-size: 0.55rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.15);
+    border-radius: 4px;
+    padding: 0px 5px;
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .api-badge.api-probing {
+    color: var(--muted);
+    background: rgba(90, 106, 122, 0.1);
+    border-color: rgba(90, 106, 122, 0.2);
+    animation: probeFade 1.5s ease-in-out infinite;
+  }
+  @keyframes probeFade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
   }
 
   .coin-price, .coin-high, .coin-low, .coin-vol {
@@ -415,6 +677,7 @@
     .table-row { height: 56px; }
     .coin-sym { font-size: 0.88rem; }
     .coin-name { font-size: 0.65rem; }
+    .api-badge { font-size: 0.5rem; padding: 0px 4px; margin-left: 4px; }
     .coin-price, .coin-high, .coin-low, .coin-vol { font-size: 0.78rem; }
     .coin-change { font-size: 0.8rem; }
     .remove-btn { opacity: 1; left: 2px; font-size: 0.75rem; }
@@ -457,6 +720,18 @@
 <div class="add-bar">
   <input id="input" type="text" placeholder="输入币种代码添加，如 BTC、DOGE、WLFI…" autocomplete="off">
   <button onclick="addFromInput()">添加</button>
+</div>
+
+<div class="trending-section" id="trendingSection">
+  <div class="trending-header">
+    <span class="fire">🔥</span>
+    <span class="trending-title">24h 热搜币种</span>
+    <span class="trending-count" id="trendingCount">--</span>
+    <button class="trending-refresh" onclick="fetchTrending()">刷新</button>
+  </div>
+  <div class="trending-groups" id="trendingGroups">
+    <div class="trending-loading"><span class="spinner"></span>加载热搜榜…</div>
+  </div>
 </div>
 
 <div class="table-container">
@@ -555,7 +830,9 @@ function render() {
   el.innerHTML = coins.map((c,i) => {
     const sym = c.symbol;
     const apiIdx = coinApiMap[sym];
-    const apiTag = apiIdx != null && APIS[apiIdx] ? ` <span style="font-size:0.6rem;color:var(--muted);opacity:0.6">(${APIS[apiIdx].name})</span>` : '';
+    const apiTag = apiIdx != null && APIS[apiIdx]
+      ? `<span class="api-badge" data-api="${sym}">${APIS[apiIdx].name}</span>`
+      : `<span class="api-badge api-probing" data-api="${sym}">探测中…</span>`;
     return `<div class="table-row" id="row-${sym}">
       <button class="remove-btn" onclick="removeCoin(${i})" title="移除">✕</button>
       <div class="coin-info">
@@ -645,6 +922,12 @@ async function fetchPrices() {
           coinApiMap[c.symbol] = apiIdx;
           saveCoinApiMap();
         }
+        // Update the exchange badge in-place
+        const badge = document.querySelector('[data-api="'+c.symbol+'"]');
+        if (badge) {
+          badge.textContent = api.name;
+          badge.className = 'api-badge';
+        }
         usedApis.add(api.name);
         ok++; return;
       } catch {}
@@ -652,6 +935,8 @@ async function fetchPrices() {
     // All exchanges failed for this coin
     const pEl=document.getElementById('p-'+c.symbol), hEl=document.getElementById('h-'+c.symbol), lEl=document.getElementById('l-'+c.symbol), vEl=document.getElementById('v-'+c.symbol), cEl=document.getElementById('c-'+c.symbol);
     if(pEl) pEl.textContent='—'; if(hEl) hEl.textContent='—'; if(lEl) lEl.textContent='—'; if(vEl) vEl.textContent='—'; if(cEl){cEl.textContent='失败'; cEl.style.color='var(--muted)';}
+    const badge = document.querySelector('[data-api="'+c.symbol+'"]');
+    if (badge) { badge.textContent = '无数据'; badge.className = 'api-badge api-probing'; }
   }));
 
   // Build status text showing which exchanges were used
@@ -681,6 +966,161 @@ initSelects();
 render();
 fetchPrices();
 timer = setInterval(fetchPrices, refreshSec * 1000);
+fetchTrending();
+
+// ── 热搜币种 ──
+let trendingCoins = []; // [{symbol, name, rank, change24h, group}]
+
+async function fetchTrending() {
+  const groupsEl = document.getElementById('trendingGroups');
+  groupsEl.innerHTML = '<div class="trending-loading"><span class="spinner"></span>加载热搜榜…</div>';
+  document.getElementById('trendingCount').textContent = '--';
+
+  try {
+    // 并行请求: 热搜 + 头部币 + 涨幅榜
+    const [trending, topCoins, gainers] = await Promise.allSettled([
+      fetchJson('https://api.coingecko.com/api/v3/search/trending', 10000),
+      fetchJson('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1', 10000),
+      fetchJson('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=price_change_percentage_24h_desc&per_page=10&page=1', 10000),
+    ]);
+
+    const seen = new Set();
+    trendingCoins = [];
+
+    // 1) 热搜榜
+    if (trending.status === 'fulfilled' && trending.value?.coins) {
+      trending.value.coins.forEach((item, i) => {
+        const c = item.item;
+        const sym = (c.symbol || '').toUpperCase();
+        if (!sym || seen.has(sym)) return;
+        seen.add(sym);
+        trendingCoins.push({
+          symbol: sym,
+          name: c.name || '',
+          rank: c.market_cap_rank || (i + 1),
+          change24h: c.data?.price_change_percentage_24h?.usd ?? null,
+          group: 'hot',
+        });
+      });
+    }
+
+    // 2) 头部币 (补充 market cap top)
+    if (topCoins.status === 'fulfilled' && Array.isArray(topCoins.value)) {
+      topCoins.value.forEach(c => {
+        const sym = (c.symbol || '').toUpperCase();
+        if (!sym || seen.has(sym)) return;
+        seen.add(sym);
+        trendingCoins.push({
+          symbol: sym,
+          name: c.name || '',
+          rank: c.market_cap_rank || null,
+          change24h: c.price_change_percentage_24h ?? null,
+          group: 'top',
+        });
+      });
+    }
+
+    // 3) 涨幅榜 (24h top gainers, 不重复)
+    if (gainers.status === 'fulfilled' && Array.isArray(gainers.value)) {
+      gainers.value.forEach(c => {
+        const sym = (c.symbol || '').toUpperCase();
+        if (!sym || seen.has(sym)) return;
+        seen.add(sym);
+        trendingCoins.push({
+          symbol: sym,
+          name: c.name || '',
+          rank: c.market_cap_rank || null,
+          change24h: c.price_change_percentage_24h ?? null,
+          group: 'gainers',
+        });
+      });
+    }
+
+    document.getElementById('trendingCount').textContent = trendingCoins.length + ' 个';
+    renderTrending();
+  } catch (e) {
+    groupsEl.innerHTML = '<div class="trending-err">⚠️ 热搜加载失败，请稍后重试</div>';
+  }
+}
+
+async function fetchJson(url, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  const res = await fetch(url, { signal: ctrl.signal });
+  clearTimeout(t);
+  if (!res.ok) throw new Error(res.status);
+  return res.json();
+}
+
+function renderTrending() {
+  const groupsEl = document.getElementById('trendingGroups');
+  if (!trendingCoins.length) {
+    groupsEl.innerHTML = '<div class="trending-err">暂无热搜数据</div>';
+    return;
+  }
+
+  const groups = {
+    hot: { label: '🔥 实时热搜', items: [] },
+    top: { label: '💎 市值头部', items: [] },
+    gainers: { label: '📈 24h 涨幅榜', items: [] },
+  };
+  trendingCoins.forEach(tc => {
+    if (groups[tc.group]) groups[tc.group].items.push(tc);
+  });
+
+  let html = '';
+  for (const [key, g] of Object.entries(groups)) {
+    if (!g.items.length) continue;
+    html += `<div class="trending-group ${key}">
+      <div class="trending-group-label">${g.label}</div>
+      <div class="trending-tags">`;
+    g.items.forEach(tc => {
+      const alreadyAdded = coins.some(c => c.symbol === tc.symbol);
+      const cls = alreadyAdded ? 'trending-tag added' : 'trending-tag';
+
+      let changeHtml = '';
+      if (tc.change24h != null) {
+        const sign = tc.change24h >= 0 ? '+' : '';
+        const dir = tc.change24h >= 0 ? 'up' : 'down';
+        changeHtml = `<span class="tag-change ${dir}">${sign}${tc.change24h.toFixed(1)}%</span>`;
+      }
+      const rankHtml = tc.rank ? `<span class="tag-rank">#${tc.rank}</span>` : '';
+      const nameShort = tc.name.length > 10 ? tc.name.slice(0, 10) + '…' : tc.name;
+      const actionIcon = alreadyAdded
+        ? `<span class="tag-action remove-icon" title="移除">✕</span>`
+        : `<span class="tag-action add-icon" title="添加">＋</span>`;
+
+      html += `<span class="${cls}" data-sym="${tc.symbol}" title="${tc.name}" onclick="toggleTrending('${tc.symbol}','${tc.name.replace(/'/g,"\\'")}',this)">
+        ${rankHtml}
+        <span class="tag-sym">${tc.symbol}</span>
+        <span class="tag-name">${nameShort}</span>
+        ${changeHtml}
+        ${actionIcon}
+      </span>`;
+    });
+    html += '</div></div>';
+  }
+  groupsEl.innerHTML = html;
+}
+
+function toggleTrending(sym, name, el) {
+  const idx = coins.findIndex(c => c.symbol === sym);
+  if (idx >= 0) {
+    // 已在列表 → 移除
+    delete coinApiMap[sym];
+    saveCoinApiMap();
+    coins.splice(idx, 1);
+    saveCoins();
+  } else {
+    // 未在列表 → 添加
+    if (activeApi >= 0) { coinApiMap[sym] = activeApi; saveCoinApiMap(); }
+    coins.push({ symbol: sym, name: name || sym });
+    saveCoins();
+  }
+  render();
+  fetchPrices();
+  renderTrending();
+}
 </script>
 </body>
 </html>
