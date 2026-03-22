@@ -21,6 +21,52 @@
     --border: rgba(0, 212, 255, 0.2);
     --glow: rgba(0, 212, 255, 0.4);
     --card-bg: rgba(16, 24, 48, 0.5);
+    --header-grad-a: #00d4ff;
+    --header-grad-b: #00ff88;
+    --body-bg-a: #0a0e1a;
+    --body-bg-b: #0d1429;
+    --input-bg: rgba(16, 24, 48, 0.6);
+    --modal-bg-a: #0d1429;
+    --modal-bg-b: #0a0e1a;
+    --search-bg-a: #0d1429;
+    --search-bg-b: #111b33;
+    --table-head-bg: rgba(0, 50, 100, 0.4);
+    --toast-bg-a: #0d1429;
+    --toast-bg-b: #111b33;
+    --onboard-bg-a: #0d1429;
+    --onboard-bg-b: #111b33;
+  }
+
+  /* ── Light Theme ── */
+  body.light-theme {
+    --bg: #e4e9f0;
+    --bg2: rgba(255, 255, 255, 0.72);
+    --row: rgba(255, 255, 255, 0.55);
+    --row-hover-up: rgba(0, 180, 100, 0.07);
+    --row-hover-down: rgba(220, 50, 80, 0.07);
+    --text: #1e2a3a;
+    --dim: #5e7080;
+    --muted: #8a98a6;
+    --green: #00a86b;
+    --red: #d63858;
+    --accent: #0077b3;
+    --border: rgba(0, 100, 170, 0.14);
+    --glow: rgba(0, 119, 179, 0.2);
+    --card-bg: rgba(255, 255, 255, 0.45);
+    --header-grad-a: #0077b3;
+    --header-grad-b: #00a86b;
+    --body-bg-a: #e4e9f0;
+    --body-bg-b: #dce2ea;
+    --input-bg: rgba(255, 255, 255, 0.7);
+    --modal-bg-a: #f5f7fa;
+    --modal-bg-b: #eef1f6;
+    --search-bg-a: #f5f7fa;
+    --search-bg-b: #eef1f6;
+    --table-head-bg: rgba(0, 119, 179, 0.06);
+    --toast-bg-a: #f5f7fa;
+    --toast-bg-b: #eef1f6;
+    --onboard-bg-a: #f5f7fa;
+    --onboard-bg-b: #eef1f6;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,7 +77,7 @@
       radial-gradient(ellipse at 20% 80%, rgba(0, 100, 255, 0.15) 0%, transparent 50%),
       radial-gradient(ellipse at 80% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
       radial-gradient(ellipse at 50% 50%, rgba(16, 24, 48, 0.8) 0%, transparent 70%),
-      linear-gradient(135deg, #0a0e1a 0%, #0d1429 50%, #0a0e1a 100%);
+      linear-gradient(135deg, var(--body-bg-a) 0%, var(--body-bg-b) 50%, var(--body-bg-a) 100%);
     background-attachment: fixed;
     color: var(--text);
     font-family: 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -42,6 +88,7 @@
     align-items: center;
     position: relative;
     overflow-x: hidden;
+    transition: background 0.4s, color 0.4s;
   }
 
   body::before {
@@ -51,6 +98,10 @@
     background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 212, 255, 0.03) 2px, rgba(0, 212, 255, 0.03) 4px);
     pointer-events: none;
     z-index: 0;
+  }
+
+  body.light-theme::before {
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 136, 204, 0.02) 2px, rgba(0, 136, 204, 0.02) 4px);
   }
 
   body::after {
@@ -66,6 +117,22 @@
     z-index: 0;
   }
 
+  body.light-theme::after {
+    background:
+      radial-gradient(circle at 30% 70%, rgba(0, 136, 204, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 70% 30%, rgba(0, 100, 255, 0.03) 0%, transparent 40%);
+  }
+
+  /* Override body background for light theme — prevents whitewash */
+  body.light-theme {
+    background:
+      radial-gradient(ellipse at 20% 80%, rgba(0, 120, 200, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(0, 180, 100, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(200, 210, 225, 0.5) 0%, transparent 70%),
+      linear-gradient(160deg, #e8ecf2 0%, #dde3eb 30%, #e2e8f0 60%, #dfe6ee 100%);
+    background-attachment: fixed;
+  }
+
   @keyframes bgRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
   /* ── Header ── */
@@ -77,16 +144,15 @@
     width: 100%;
     max-width: 1200px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    position: relative;
   }
   .header h1 {
     font-size: clamp(1.4rem, 3vw, 2.2rem);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     font-weight: 700;
     letter-spacing: 3px;
-    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    background: linear-gradient(135deg, var(--header-grad-a), var(--header-grad-b));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -95,14 +161,37 @@
   .header .sub {
     color: var(--dim);
     font-size: clamp(0.75rem, 1.5vw, 0.9rem);
+    margin-bottom: 14px;
   }
-  .header-right {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+
+  /* ── Toolbar ── */
+  .toolbar {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 10px;
+    backdrop-filter: blur(15px);
+    flex-wrap: wrap;
+    justify-content: center;
+    transition: border-color 0.3s;
+  }
+  .toolbar:hover {
+    border-color: rgba(0, 212, 255, 0.3);
+  }
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .toolbar-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 2px;
+    flex-shrink: 0;
   }
 
   /* ── Icon Buttons ── */
@@ -190,7 +279,7 @@
   }
   .add-bar input {
     flex: 1;
-    background: var(--bg2);
+    background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 10px 14px;
@@ -322,18 +411,18 @@
   }
 
   .trending-tags {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 8px;
   }
   .trending-tag {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     background: rgba(20, 30, 60, 0.5);
     border: 1px solid rgba(0, 212, 255, 0.12);
     border-radius: 10px;
-    padding: 7px 12px;
+    padding: 10px 14px;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
@@ -372,37 +461,42 @@
     opacity: 1;
   }
   .trending-tag .tag-rank {
-    font-size: 0.58rem;
+    font-size: 0.6rem;
     font-weight: 700;
     color: var(--accent);
     background: rgba(0, 212, 255, 0.1);
     border: 1px solid rgba(0, 212, 255, 0.15);
     border-radius: 4px;
-    padding: 1px 5px;
-    min-width: 20px;
+    padding: 2px 6px;
+    min-width: 28px;
     text-align: center;
     letter-spacing: 0.5px;
+    flex-shrink: 0;
   }
   .trending-tag .tag-sym {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: var(--text);
     letter-spacing: 0.5px;
+    flex-shrink: 0;
   }
   .trending-tag .tag-name {
-    font-size: 0.62rem;
+    font-size: 0.65rem;
     color: var(--muted);
-    max-width: 80px;
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .trending-tag .tag-change {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    padding: 1px 5px;
-    border-radius: 4px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    margin-left: auto;
   }
   .trending-tag .tag-change.up {
     color: var(--green);
@@ -485,19 +579,19 @@
     height: 44px;
     font-size: 0.72rem;
     color: var(--accent);
-    background: rgba(0, 50, 100, 0.4);
+    background: var(--table-head-bg);
     font-weight: 600;
     letter-spacing: 0.5px;
     text-transform: uppercase;
     user-select: none;
   }
   .table-head span {
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
     cursor: pointer;
     transition: color 0.2s;
   }
-  .table-head span:first-child { text-align: left; cursor: default; }
+  .table-head span:first-child { text-align: center; cursor: default; }
   .table-head span:hover { color: #fff; }
   .table-head span .sort-arrow {
     font-size: 0.6rem;
@@ -526,6 +620,7 @@
   .coin-info {
     display: flex;
     flex-direction: column;
+    align-items: center;
     min-width: 0;
   }
   .coin-sym {
@@ -566,16 +661,32 @@
     border-color: rgba(90, 106, 122, 0.2);
     animation: probeFade 1.5s ease-in-out infinite;
   }
+  .api-badge.ws-badge {
+    font-weight: 700;
+  }
+  .api-badge.ws-binance {
+    color: var(--green);
+    background: rgba(0, 255, 136, 0.08);
+    border-color: rgba(0, 255, 136, 0.2);
+  }
+  .api-badge.ws-okx {
+    color: #c8a84e;
+    background: rgba(200, 168, 78, 0.08);
+    border-color: rgba(200, 168, 78, 0.2);
+  }
   @keyframes probeFade {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
   }
 
+  .card-label {
+    display: none;
+  }
   .coin-price, .coin-high, .coin-low, .coin-vol {
     font-size: 0.85rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -588,7 +699,7 @@
     font-size: 0.8rem;
   }
   .coin-change {
-    text-align: right;
+    text-align: center;
     font-size: 0.88rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
@@ -599,7 +710,7 @@
   .sparkline-cell {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
   }
   .sparkline-cell svg {
     display: block;
@@ -709,7 +820,7 @@
     pointer-events: all;
   }
   .modal {
-    background: linear-gradient(135deg, #0d1429 0%, #0a0e1a 100%);
+    background: linear-gradient(135deg, var(--modal-bg-a) 0%, var(--modal-bg-b) 100%);
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 28px;
@@ -717,7 +828,7 @@
     max-width: 420px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 212, 255, 0.1);
     transform: translateY(20px);
-    transition: transform 0.3s;
+    transition: transform 0.3s, background 0.4s;
   }
   .modal-overlay.active .modal {
     transform: translateY(0);
@@ -740,7 +851,7 @@
   }
   .modal-field input, .modal-field select {
     width: 100%;
-    background: rgba(16, 24, 48, 0.6);
+    background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 10px 12px;
@@ -833,12 +944,12 @@
   .view-cards .table-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto;
     height: auto;
-    padding: 14px 16px;
-    gap: 6px 12px;
+    padding: 16px;
+    gap: 10px 16px;
     border-radius: 12px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     border: 1px solid var(--border);
   }
   .view-cards .table-row .coin-info {
@@ -854,7 +965,24 @@
     transform: none;
     margin-left: auto;
   }
-  .view-cards .sparkline-cell { justify-content: flex-start; }
+  .view-cards .sparkline-cell { justify-content: center; grid-column: 1 / -1; }
+  .view-cards .table-row .coin-price,
+  .view-cards .table-row .coin-high,
+  .view-cards .table-row .coin-low,
+  .view-cards .table-row .coin-vol,
+  .view-cards .table-row .coin-change {
+    text-align: center;
+    position: relative;
+  }
+  .view-cards .card-label {
+    display: block;
+    font-size: 0.6rem;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
 
   /* ── Notification Toast ── */
   .toast-container {
@@ -867,7 +995,7 @@
     gap: 8px;
   }
   .toast {
-    background: linear-gradient(135deg, #0d1429 0%, #111b33 100%);
+    background: linear-gradient(135deg, var(--toast-bg-a) 0%, var(--toast-bg-b) 100%);
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent);
     border-radius: 10px;
@@ -910,7 +1038,8 @@
   @media (max-width: 480px) {
     body { padding: 16px 12px; }
     .header { margin-bottom: 16px; }
-    .header-right { position: static; transform: none; margin-top: 10px; }
+    .toolbar { padding: 5px 8px; gap: 4px; }
+    .toolbar-sep { height: 18px; }
     .controls { gap: 8px; }
     .select-group { padding: 5px 10px; flex: 1; min-width: 140px; }
     .select-group label { font-size: 0.7rem; }
@@ -930,11 +1059,12 @@
     .footer { margin-top: 20px; font-size: 0.68rem; }
     .trending-section { margin-bottom: 16px; }
     .trending-group { padding: 10px 12px; }
-    .trending-tag { padding: 5px 9px; gap: 4px; }
+    .trending-tag { padding: 8px 10px; gap: 5px; }
     .trending-tag .tag-sym { font-size: 0.76rem; }
-    .trending-tag .tag-rank { font-size: 0.52rem; }
+    .trending-tag .tag-rank { font-size: 0.52rem; min-width: 24px; }
     .trending-tag .tag-change { font-size: 0.62rem; }
     .trending-tag .tag-name { max-width: 50px; font-size: 0.56rem; }
+    .trending-tags { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
     .toast { min-width: 200px; max-width: 280px; }
   }
 
@@ -1004,7 +1134,7 @@
     top: 100%;
     left: 0;
     right: 68px;
-    background: linear-gradient(135deg, #0d1429 0%, #111b33 100%);
+    background: linear-gradient(135deg, var(--search-bg-a) 0%, var(--search-bg-b) 100%);
     border: 1px solid var(--border);
     border-radius: 10px;
     margin-top: 6px;
@@ -1144,7 +1274,7 @@
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
-    background: linear-gradient(135deg, #0d1429 0%, #111b33 100%);
+    background: linear-gradient(135deg, var(--onboard-bg-a) 0%, var(--onboard-bg-b) 100%);
     border: 1px solid var(--accent);
     border-radius: 12px;
     padding: 16px 24px;
@@ -1361,6 +1491,94 @@
   }
   .notify-status.ok { color: var(--green); }
   .notify-status.err { color: var(--red); }
+
+  /* ── Light Theme Overrides ── */
+  body.light-theme .modal-overlay {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  body.light-theme select option {
+    background: #fff;
+    color: #1a1a2e;
+  }
+  body.light-theme .search-item {
+    border-bottom-color: rgba(0, 136, 204, 0.08);
+  }
+  body.light-theme .alert-item {
+    background: rgba(0, 136, 204, 0.04);
+  }
+  body.light-theme .notify-channel {
+    background: rgba(0, 136, 204, 0.03);
+  }
+  body.light-theme .portfolio-summary {
+    background: rgba(0, 136, 204, 0.04);
+  }
+  body.light-theme .trending-group {
+    background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(240,242,245,0.5) 100%);
+  }
+  body.light-theme .trending-tag {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: rgba(0, 136, 204, 0.1);
+  }
+  body.light-theme .market-stat {
+    background: rgba(255, 255, 255, 0.8);
+  }
+  body.light-theme .select-group {
+    background: rgba(255, 255, 255, 0.85);
+  }
+  body.light-theme .table-wrap {
+    box-shadow:
+      0 0 40px rgba(0, 100, 255, 0.06),
+      inset 0 1px 0 rgba(255,255,255,0.8);
+  }
+  body.light-theme .toast {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  }
+  body.light-theme .onboarding-tip {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 30px rgba(0, 136, 204, 0.1);
+  }
+  body.light-theme .dot.live {
+    background: var(--green);
+    box-shadow: 0 0 12px var(--green);
+  }
+  body.light-theme .notify-channel input[type="text"],
+  body.light-theme .notify-channel input[type="email"] {
+    background: rgba(255, 255, 255, 0.8);
+  }
+  body.light-theme .modal-btn-secondary {
+    background: rgba(0, 136, 204, 0.06);
+  }
+  body.light-theme .search-loading {
+    color: var(--dim);
+  }
+  body.light-theme .toolbar {
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+  body.light-theme .toolbar-sep {
+    background: rgba(0, 0, 0, 0.07);
+  }
+  body.light-theme .api-badge.ws-binance {
+    color: #00a86b;
+    background: rgba(0, 168, 107, 0.06);
+    border-color: rgba(0, 168, 107, 0.15);
+  }
+  body.light-theme .api-badge.ws-okx {
+    color: #a08530;
+    background: rgba(160, 133, 48, 0.06);
+    border-color: rgba(160, 133, 48, 0.15);
+  }
+  body.light-theme .icon-btn:hover {
+    box-shadow: 0 0 10px rgba(0, 119, 179, 0.15);
+  }
+  body.light-theme .header h1 {
+    filter: drop-shadow(0 0 6px rgba(0, 119, 179, 0.25));
+  }
+  body.light-theme .add-bar button {
+    box-shadow: 0 4px 12px rgba(0, 119, 179, 0.2);
+  }
+  body.light-theme .modal-btn-primary {
+    box-shadow: 0 4px 12px rgba(0, 119, 179, 0.2);
+  }
 </style>
 </head>
 <body>
@@ -1369,22 +1587,30 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- Header -->
-<div class="header" style="flex-direction:column;">
-  <div style="display:flex;align-items:center;justify-content:center;position:relative;width:100%;">
-    <div></div>
-    <div style="text-align:center;">
-      <h1>CRYPTO MONITOR</h1>
-      <div class="sub" id="subText">实时行情监控系统</div>
+<div class="header">
+  <h1>CRYPTO MONITOR</h1>
+  <div class="sub" id="subText">实时行情监控系统</div>
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" title="深色/浅色主题">🌙</button>
+      <button class="icon-btn" id="colorInvertToggle" onclick="toggleColorInvert()" title="涨跌颜色反转">🔄</button>
+      <button class="icon-btn" id="viewToggle" onclick="toggleView()" title="切换视图">🃏</button>
     </div>
-    <div class="header-right">
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-group">
       <button class="icon-btn" id="soundToggle" onclick="toggleSound()" title="声音提醒">🔊</button>
       <button class="icon-btn" onclick="openAlertModal()" title="价格预警" style="position:relative">🔔<span class="alert-badge" id="alertBadge" style="display:none">0</span></button>
       <button class="icon-btn" onclick="openNotifyModal()" title="通知渠道设置">📱</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-group">
       <button class="icon-btn" onclick="openPortfolioModal()" title="持仓盈亏">💰</button>
       <button class="icon-btn" onclick="exportData()" title="导出数据">📤</button>
       <button class="icon-btn" onclick="document.getElementById('importFile').click()" title="导入数据">📥</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-      <button class="icon-btn" id="viewToggle" onclick="toggleView()" title="切换视图">🃏</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-group">
       <button class="icon-btn" onclick="openHelpModal()" title="快捷键帮助">❓</button>
     </div>
   </div>
@@ -1401,6 +1627,7 @@
   <div class="select-group">
     <label>刷新间隔</label>
     <select id="refreshSelect" onchange="setInterval_(parseInt(this.value))">
+      <option value="5">5秒</option>
       <option value="10">10秒</option>
       <option value="30">30秒</option>
       <option value="60">1分钟</option>
@@ -1551,6 +1778,8 @@
       <kbd>H</kbd><span>打开此帮助</span>
       <kbd>V</kbd><span>切换视图模式</span>
       <kbd>S</kbd><span>切换声音</span>
+      <kbd>T</kbd><span>切换深色/浅色主题</span>
+      <kbd>C</kbd><span>涨跌颜色反转</span>
       <kbd>Esc</kbd><span>关闭弹窗</span>
     </div>
     <div class="modal-actions" style="margin-top:16px;">
@@ -1661,7 +1890,7 @@ const DEFAULT_COINS = [
 let coins = loadCoins();
 let activeApi = parseInt(localStorage.getItem('crypto_api') || '-1');
 let coinApiMap = loadCoinApiMap();
-let refreshSec = parseInt(localStorage.getItem('crypto_refresh') || '30');
+let refreshSec = parseInt(localStorage.getItem('crypto_refresh') || '5');
 let timer = null;
 let currency = localStorage.getItem('crypto_currency') || 'USD';
 let currencyRates = { USD: 1, CNY: 7.25, EUR: 0.92 };
@@ -1672,6 +1901,27 @@ let priceHistory = {}; // { 'BTC': [p1, p2, ...] } for sparklines
 let prevPrices = {};   // { 'BTC': lastPrice } for flash animation
 let soundEnabled = localStorage.getItem('crypto_sound') !== '0'; // default on
 let audioCtx = null; // lazy init AudioContext
+let isLightTheme = localStorage.getItem('crypto_theme') === 'light';
+let colorInverted = localStorage.getItem('crypto_color_invert') === '1';
+
+// ── WebSocket State ──
+const WS_MAJOR_SYMBOLS = new Set([
+  'BTC','ETH','BNB','SOL','XRP','ADA','DOGE','TRX','AVAX','DOT',
+  'LINK','MATIC','UNI','SHIB','LTC','BCH','ATOM','XLM','NEAR','APT',
+  'ARB','OP','FIL','INJ','SUI','PEPE','SEI','WLD','TIA','ORDI',
+  'AAVE','MKR','SNX','COMP','CRV','LDO','STX','IMX','RNDR','FET',
+]);
+const BINANCE_WS_BASE = 'wss://stream.binance.com:9443/ws/';
+const BINANCE_WS_COMBINED = 'wss://stream.binance.com:9443/stream?streams=';
+const OKX_WS_URL = 'wss://ws.okx.com:8443/ws/v5/public';
+const WS_BATCH_SIZE = 30; // Binance combined stream limit
+const WS_OKX_BATCH_SIZE = 50; // OKX can handle more per connection
+let wsConnections = [];    // active WebSocket instances { ws, provider, batchIdx, symbols }
+let wsManagedSymbols = new Set(); // symbols currently on WS
+let wsProviderOf = {};    // { 'BTC': 'binance' | 'okx' } — which provider each symbol uses
+let wsReconnectTimers = {};
+
+function isWsEligible(sym) { return WS_MAJOR_SYMBOLS.has(sym); }
 
 // ── Persistence ──
 function loadCoins() { try { const s=localStorage.getItem('crypto_coins_v4'); if(s)return JSON.parse(s); } catch{} return DEFAULT_COINS.map(c=>({...c})); }
@@ -1698,10 +1948,9 @@ function fmtRaw(n) {
 }
 function fmtVol(n) {
   if (n==null||isNaN(n)||n===0) return '—';
-  if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
-  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return (n/1e3).toFixed(2) + 'K';
-  return n.toFixed(2);
+  if (n >= 1e8) return (n/1e8).toFixed(2) + '亿 USDT';
+  if (n >= 1e4) return (n/1e4).toFixed(2) + '万 USDT';
+  return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2}) + ' USDT';
 }
 
 // ── CORS-aware fetch ──
@@ -1764,7 +2013,7 @@ function setInterval_(sec) {
   localStorage.setItem('crypto_refresh', sec);
   clearInterval(timer);
   timer = setInterval(fetchPrices, sec * 1000);
-  document.getElementById('subText').textContent = sec >= 60 ? `每 ${sec/60} 分钟自动刷新` : `每 ${sec} 秒自动刷新`;
+  updateWsStatus();
   fetchPrices();
 }
 
@@ -1867,11 +2116,11 @@ function render() {
         <span class="coin-sym">${sym}${apiTag}${alertTag}</span>
         <span class="coin-name">${c.name||''} ${pnlTag}</span>
       </div>
-      <div class="coin-price" id="p-${sym}">${last ? fmt(last.p) : '—'}</div>
-      <div class="coin-high" id="h-${sym}">${last && last.h ? fmt(last.h) : '—'}</div>
-      <div class="coin-low" id="l-${sym}">${last && last.l ? fmt(last.l) : '—'}</div>
-      <div class="coin-vol" id="v-${sym}">${last ? fmtVol(last.v) : '—'}</div>
-      <div class="coin-change" id="c-${sym}" style="${last ? 'color:' + (last.c >= 0 ? 'var(--green)' : 'var(--red)') : ''}">${last ? (last.c>=0?'+':'')+last.c.toFixed(2)+'%' : '—'}</div>
+      <div class="coin-price" id="p-${sym}"><span class="card-label">最新价</span><span class="card-value">${last ? fmt(last.p) : '—'}</span></div>
+      <div class="coin-high" id="h-${sym}"><span class="card-label">24h最高</span><span class="card-value">${last && last.h ? fmt(last.h) : '—'}</span></div>
+      <div class="coin-low" id="l-${sym}"><span class="card-label">24h最低</span><span class="card-value">${last && last.l ? fmt(last.l) : '—'}</span></div>
+      <div class="coin-vol" id="v-${sym}"><span class="card-label">24h成交额</span><span class="card-value">${last ? fmtVol(last.v) : '—'}</span></div>
+      <div class="coin-change" id="c-${sym}" style="${last ? 'color:' + (last.c >= 0 ? 'var(--green)' : 'var(--red)') : ''}"><span class="card-label">涨跌幅</span><span class="card-value">${last ? (last.c>=0?'+':'')+last.c.toFixed(2)+'%' : '—'}</span></div>
       <div class="sparkline-cell" id="sp-${sym}">${sparklineSvg(sym)}</div>
     </div>`;
   }).join('');
@@ -1885,14 +2134,18 @@ function addCoin(sym, name) {
   if (!sym || coins.find(c=>c.symbol===sym)) return;
   coins.push({symbol:sym, name:name||sym}); saveCoins();
   if (activeApi >= 0) { coinApiMap[sym] = activeApi; saveCoinApiMap(); }
-  render(); fetchPrices();
+  render();
+  if (isWsEligible(sym)) { wsResync(); fetchPrices(); } else { fetchPrices(); }
 }
 function removeCoin(i) {
   const sym=coins[i].symbol;
   delete coinApiMap[sym]; saveCoinApiMap();
   delete priceHistory[sym];
+  wsManagedSymbols.delete(sym);
   coins.splice(i,1); saveCoins();
-  render(); fetchPrices();
+  render();
+  wsResync();
+  fetchPrices();
 }
 function addFromInput() {
   const v = document.getElementById('input').value.trim();
@@ -1900,7 +2153,255 @@ function addFromInput() {
 }
 document.getElementById('input').addEventListener('keydown', e => { if(e.key==='Enter') addFromInput(); });
 
-// ── Fetch Prices (with concurrency limit) ──
+// ── Apply coin data (shared by WS + polling) ──
+function applyCoinData(sym, data, sourceLabel) {
+  const { p, h, l, v, c: ch } = data;
+
+  // Update price history (keep last 200 for RSI etc.)
+  if (!priceHistory[sym]) priceHistory[sym] = [];
+  priceHistory[sym].push({ p, h, l, v, c: ch, t: Date.now() });
+  if (priceHistory[sym].length > 200) priceHistory[sym].shift();
+
+  // Flash animation
+  const prev = prevPrices[sym];
+  let flashClass = '';
+  if (prev != null && prev !== p) {
+    flashClass = p > prev ? 'flash-up' : 'flash-down';
+  }
+  prevPrices[sym] = p;
+
+  // DOM update
+  const pEl = document.getElementById('p-' + sym);
+  const hEl = document.getElementById('h-' + sym);
+  const lEl = document.getElementById('l-' + sym);
+  const vEl = document.getElementById('v-' + sym);
+  const cEl = document.getElementById('c-' + sym);
+  const spEl = document.getElementById('sp-' + sym);
+  const row = document.getElementById('row-' + sym);
+
+  if (pEl) { const pv = pEl.querySelector('.card-value') || pEl; pv.textContent = fmt(p); if (flashClass) { pEl.classList.remove('flash-up', 'flash-down'); void pEl.offsetWidth; pEl.classList.add(flashClass); } }
+  if (hEl) { const hv = hEl.querySelector('.card-value') || hEl; hv.textContent = h ? fmt(h) : '—'; }
+  if (lEl) { const lv = lEl.querySelector('.card-value') || lEl; lv.textContent = l ? fmt(l) : '—'; }
+  if (vEl) { const vv = vEl.querySelector('.card-value') || vEl; vv.textContent = fmtVol(v); }
+  if (cEl) { const cv = cEl.querySelector('.card-value') || cEl; cv.textContent = (ch >= 0 ? '+' : '') + ch.toFixed(2) + '%'; cEl.style.color = ch >= 0 ? 'var(--green)' : 'var(--red)'; }
+  if (row) { row.className = 'table-row ' + (ch >= 0 ? 'up' : 'down'); }
+  if (spEl) spEl.innerHTML = sparklineSvg(sym);
+
+  // Source badge
+  const badge = document.querySelector('[data-api="' + sym + '"]');
+  if (badge && sourceLabel) {
+    badge.textContent = sourceLabel;
+    if (sourceLabel === 'Binance WS') {
+      badge.className = 'api-badge ws-badge ws-binance';
+    } else if (sourceLabel === 'OKX WS') {
+      badge.className = 'api-badge ws-badge ws-okx';
+    } else {
+      badge.className = 'api-badge';
+    }
+  }
+
+  // Check alerts
+  checkAlerts(sym, p);
+}
+
+// ── Multi-Provider WebSocket Manager (Binance primary → OKX fallback) ──
+function getWsSymbols() {
+  return coins.filter(c => isWsEligible(c.symbol)).map(c => c.symbol);
+}
+
+function getPollSymbols() {
+  return coins.filter(c => !isWsEligible(c.symbol)).map(c => c.symbol);
+}
+
+function wsCloseAll() {
+  wsConnections.forEach(conn => {
+    try { conn.ws.close(); } catch {}
+  });
+  wsConnections = [];
+  Object.values(wsReconnectTimers).forEach(t => clearTimeout(t));
+  wsReconnectTimers = {};
+  wsManagedSymbols.clear();
+  wsProviderOf = {};
+}
+
+function binanceWsConnect() {
+  wsCloseAll();
+
+  const symbols = getWsSymbols();
+  if (!symbols.length) { updateWsStatus(); return; }
+
+  // Batch for Binance
+  const batches = [];
+  for (let i = 0; i < symbols.length; i += WS_BATCH_SIZE) {
+    batches.push(symbols.slice(i, i + WS_BATCH_SIZE));
+  }
+
+  // Connect Binance primary
+  batches.forEach((batch, idx) => {
+    wsConnectBinanceBatch(batch, 'b' + idx);
+  });
+
+  // Connect OKX as fallback (all symbols in one or two connections)
+  const okxBatches = [];
+  for (let i = 0; i < symbols.length; i += WS_OKX_BATCH_SIZE) {
+    okxBatches.push(symbols.slice(i, i + WS_OKX_BATCH_SIZE));
+  }
+  okxBatches.forEach((batch, idx) => {
+    wsConnectOkxBatch(batch, 'o' + idx);
+  });
+
+  // Initially mark all as Binance (primary); OKX data will override if Binance is late
+  symbols.forEach(s => { wsProviderOf[s] = 'binance'; });
+  wsManagedSymbols = new Set(symbols);
+  updateWsStatus();
+}
+
+// ── Binance WS ──
+function wsConnectBinanceBatch(symbols, connKey) {
+  const streams = symbols.map(s => s.toLowerCase() + 'usdt@ticker').join('/');
+  const url = BINANCE_WS_BASE + streams;
+
+  try {
+    const ws = new WebSocket(url);
+    const conn = { ws, provider: 'binance', connKey, symbols };
+    ws._conn = conn;
+
+    ws.onopen = () => { updateWsStatus(); };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        const d = msg.data || msg;
+        const sym = (d.s || '').replace('USDT', '');
+        if (!sym) return;
+
+        const p = parseFloat(d.c), h = parseFloat(d.h), l = parseFloat(d.l);
+        const v = parseFloat(d.q), ch = parseFloat(d.P);
+        if (isNaN(p)) return;
+
+        // Binance is primary — always accept
+        wsProviderOf[sym] = 'binance';
+        wsManagedSymbols.add(sym);
+        applyCoinData(sym, { p, h, l, v, c: ch }, 'Binance WS');
+      } catch {}
+    };
+
+    ws.onerror = () => ws.close();
+    ws.onclose = () => {
+      updateWsStatus();
+      // Reconnect Binance with backoff
+      const delay = Math.min(2000, 30000);
+      clearTimeout(wsReconnectTimers[connKey]);
+      wsReconnectTimers[connKey] = setTimeout(() => {
+        wsConnectBinanceBatch(symbols, connKey);
+      }, delay);
+    };
+
+    wsConnections.push(conn);
+  } catch {}
+}
+
+// ── OKX WS (fallback) ──
+function wsConnectOkxBatch(symbols, connKey) {
+  try {
+    const ws = new WebSocket(OKX_WS_URL);
+    const conn = { ws, provider: 'okx', connKey, symbols };
+    ws._conn = conn;
+
+    ws.onopen = () => {
+      // Subscribe to tickers
+      const args = symbols.map(s => ({
+        channel: 'tickers',
+        instId: s.toUpperCase() + '-USDT'
+      }));
+      ws.send(JSON.stringify({ op: 'subscribe', args }));
+      updateWsStatus();
+
+      // OKX requires ping every 30s to keep alive
+      conn._pingInterval = setInterval(() => {
+        try { ws.send('ping'); } catch {}
+      }, 25000);
+    };
+
+    ws.onmessage = (event) => {
+      // OKX sends 'pong' responses
+      if (event.data === 'pong') return;
+
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.event === 'subscribe' || msg.arg) return; // subscription ack
+
+        const arr = msg.data;
+        if (!Array.isArray(arr)) return;
+
+        arr.forEach(d => {
+          const instId = d.instId || '';
+          const sym = instId.replace('-USDT', '').replace('-usdt', '');
+          if (!sym) return;
+
+          const p = parseFloat(d.last);
+          const h = parseFloat(d.high24h);
+          const l = parseFloat(d.low24h);
+          const v = parseFloat(d.volCcy24h);
+          const o = parseFloat(d.open24h);
+          const ch = o ? ((p - o) / o * 100) : 0;
+
+          if (isNaN(p)) return;
+
+          // OKX is fallback — only accept if Binance hasn't provided data recently
+          // or if this is the first data for this symbol
+          const existing = priceHistory[sym];
+          const lastTs = existing && existing.length ? existing[existing.length - 1].t : 0;
+          const binanceStale = (Date.now() - lastTs) > 15000; // Binance data > 15s old
+
+          if (!wsProviderOf[sym] || wsProviderOf[sym] === 'okx' || binanceStale) {
+            wsProviderOf[sym] = 'okx';
+            wsManagedSymbols.add(sym);
+            applyCoinData(sym, { p, h, l, v, c: ch }, 'OKX WS');
+          }
+        });
+      } catch {}
+    };
+
+    ws.onerror = () => ws.close();
+    ws.onclose = () => {
+      clearInterval(conn._pingInterval);
+      updateWsStatus();
+      const delay = Math.min(3000, 30000);
+      clearTimeout(wsReconnectTimers[connKey]);
+      wsReconnectTimers[connKey] = setTimeout(() => {
+        wsConnectOkxBatch(symbols, connKey);
+      }, delay);
+    };
+
+    wsConnections.push(conn);
+  } catch {}
+}
+
+// ── Shared ──
+function wsResync() {
+  const needed = new Set(getWsSymbols());
+  const same = needed.size === wsManagedSymbols.size && [...needed].every(s => wsManagedSymbols.has(s));
+  if (!same) {
+    binanceWsConnect(); // reconnect both providers
+  }
+}
+
+function updateWsStatus() {
+  const wsCount = [...wsManagedSymbols].filter(s => coins.some(c => c.symbol === s)).length;
+  const pollCount = coins.length - wsCount;
+  const interval = refreshSec >= 60 ? `${refreshSec / 60}分钟` : `${refreshSec}秒`;
+
+  if (wsCount > 0 && pollCount > 0) {
+    document.getElementById('subText').textContent = `⚡${wsCount}实时 + 🔄${pollCount}轮询`;
+  } else if (wsCount > 0) {
+    document.getElementById('subText').textContent = 'WebSocket 实时推送中';
+  } else {
+    document.getElementById('subText').textContent = `每${interval}自动刷新`;
+  }
+}
+
+// ── Fetch Prices (polling for non-WS coins only) ──
 async function tryApi(api, sym) {
   const d = await fetchWithCors(api.price(sym), 6000);
   const res = api.parse(d);
@@ -1909,9 +2410,24 @@ async function tryApi(api, sym) {
 }
 
 async function fetchPrices() {
-  if (!coins.length) { setStatus('live','无币种'); return; }
+  if (!coins.length) { setStatus('live', '无币种'); return; }
 
-  const tasks = coins.map(c => async () => {
+  // Only poll coins not managed by WebSocket
+  const pollCoins = coins.filter(c => !wsManagedSymbols.has(c.symbol));
+
+  if (!pollCoins.length && wsManagedSymbols.size > 0) {
+    // All coins on WS, nothing to poll
+    const binanceCount = Object.values(wsProviderOf).filter(p => p === 'binance').length;
+    const okxCount = Object.values(wsProviderOf).filter(p => p === 'okx').length;
+    const parts = [];
+    if (binanceCount) parts.push(`Binance⚡${binanceCount}`);
+    if (okxCount) parts.push(`OKX⚡${okxCount}`);
+    setStatus('live', `${parts.join(' · ')} · ${new Date().toLocaleTimeString('zh-CN')}`);
+    updateTabBadge();
+    return;
+  }
+
+  const tasks = (pollCoins.length ? pollCoins : coins).map(c => async () => {
     let list;
     const prefIdx = coinApiMap[c.symbol];
     if (activeApi >= 0) {
@@ -1925,55 +2441,21 @@ async function fetchPrices() {
     for (const api of list) {
       try {
         const res = await tryApi(api, c.symbol);
-        const { p, h, l, v, c: ch } = res;
         const apiIdx = APIS.indexOf(api);
 
-        // Update price history (keep last 30)
-        if (!priceHistory[c.symbol]) priceHistory[c.symbol] = [];
-        priceHistory[c.symbol].push({ p, h, l, v, c: ch, t: Date.now() });
-        if (priceHistory[c.symbol].length > 30) priceHistory[c.symbol].shift();
-
-        // Flash animation
-        const prev = prevPrices[c.symbol];
-        let flashClass = '';
-        if (prev != null && prev !== p) {
-          flashClass = p > prev ? 'flash-up' : 'flash-down';
-        }
-        prevPrices[c.symbol] = p;
-
-        // DOM update
-        const pEl = document.getElementById('p-'+c.symbol);
-        const hEl = document.getElementById('h-'+c.symbol);
-        const lEl = document.getElementById('l-'+c.symbol);
-        const vEl = document.getElementById('v-'+c.symbol);
-        const cEl = document.getElementById('c-'+c.symbol);
-        const spEl = document.getElementById('sp-'+c.symbol);
-        const row = document.getElementById('row-'+c.symbol);
-
-        if (pEl) { pEl.textContent = fmt(p); if (flashClass) { pEl.classList.remove('flash-up','flash-down'); void pEl.offsetWidth; pEl.classList.add(flashClass); } }
-        if (hEl) hEl.textContent = h ? fmt(h) : '—';
-        if (lEl) lEl.textContent = l ? fmt(l) : '—';
-        if (vEl) vEl.textContent = fmtVol(v);
-        if (cEl) { cEl.textContent = (ch>=0?'+':'')+ch.toFixed(2)+'%'; cEl.style.color = ch>=0 ? 'var(--green)' : 'var(--red)'; }
-        if (row) { row.className = 'table-row ' + (ch>=0?'up':'down'); }
-        if (spEl) spEl.innerHTML = sparklineSvg(c.symbol);
+        applyCoinData(c.symbol, res, api.name);
 
         if (coinApiMap[c.symbol] !== apiIdx) {
           coinApiMap[c.symbol] = apiIdx;
           saveCoinApiMap();
         }
-        const badge = document.querySelector('[data-api="'+c.symbol+'"]');
-        if (badge) { badge.textContent = api.name; badge.className = 'api-badge'; }
-
-        // Check alerts
-        checkAlerts(c.symbol, p);
 
         return { api: api.name };
       } catch {}
     }
     // All failed
     const cEl = document.getElementById('c-'+c.symbol);
-    if (cEl) { cEl.textContent = '失败'; cEl.style.color = 'var(--muted)'; }
+    if (cEl) { const cv = cEl.querySelector('.card-value') || cEl; cv.textContent = '失败'; cEl.style.color = 'var(--muted)'; }
     const badge = document.querySelector('[data-api="'+c.symbol+'"]');
     if (badge) { badge.textContent = '无数据'; badge.className = 'api-badge api-probing'; }
     return null;
@@ -1985,10 +2467,27 @@ async function fetchPrices() {
   results.forEach(r => { if (r && r.api) { usedApis.add(r.api); ok++; } });
 
   const apiNames = [...usedApis].join(' / ');
-  if (ok) {
-    setStatus('live', `${apiNames || 'OK'} · ${ok}/${coins.length} · ${new Date().toLocaleTimeString('zh-CN')}`);
+  const wsCount = wsManagedSymbols.size;
+  const total = coins.length;
+  const pollOk = ok;
+  const allOk = pollOk + wsCount;
+
+  if (allOk > 0 || pollOk > 0) {
+    const parts = [];
+    if (wsCount > 0) {
+      const bn = Object.values(wsProviderOf).filter(p => p === 'binance').length;
+      const ox = Object.values(wsProviderOf).filter(p => p === 'okx').length;
+      const wsParts = [];
+      if (bn) wsParts.push(`Binance⚡${bn}`);
+      if (ox) wsParts.push(`OKX⚡${ox}`);
+      parts.push(wsParts.join('+'));
+    }
+    if (pollOk > 0) parts.push(`${apiNames || 'OK'}·${pollOk}poll`);
+    parts.push(`${allOk}/${total}`);
+    parts.push(new Date().toLocaleTimeString('zh-CN'));
+    setStatus('live', parts.join(' · '));
   } else {
-    setStatus('error','全部失败 — '+refreshSec+'s 后重试');
+    setStatus('error', '全部失败 — ' + refreshSec + 's 后重试');
   }
   updateTabBadge();
 }
@@ -2100,6 +2599,75 @@ function toggleSound() {
   if (soundEnabled) playNotifySound(); // test sound
 }
 
+// ── Theme Toggle (Dark / Light) ──
+function toggleTheme() {
+  isLightTheme = !isLightTheme;
+  localStorage.setItem('crypto_theme', isLightTheme ? 'light' : 'dark');
+  applyTheme();
+}
+
+function applyTheme() {
+  document.body.classList.toggle('light-theme', isLightTheme);
+  document.getElementById('themeToggle').textContent = isLightTheme ? '☀️' : '🌙';
+  document.getElementById('themeToggle').title = isLightTheme ? '切换到深色主题' : '切换到浅色主题';
+}
+
+// ── Color Inversion (Green/Red swap) ──
+function toggleColorInvert() {
+  colorInverted = !colorInverted;
+  localStorage.setItem('crypto_color_invert', colorInverted ? '1' : '0');
+  applyColorInvert();
+}
+
+function applyColorInvert() {
+  const root = document.documentElement;
+  if (colorInverted) {
+    root.style.setProperty('--green', isLightTheme ? '#d63858' : '#ff416c');
+    root.style.setProperty('--red', isLightTheme ? '#00a86b' : '#00ff88');
+    document.getElementById('colorInvertToggle').textContent = '🔃';
+    document.getElementById('colorInvertToggle').title = '恢复默认涨跌颜色';
+  } else {
+    root.style.removeProperty('--green');
+    root.style.removeProperty('--red');
+    document.getElementById('colorInvertToggle').textContent = '🔄';
+    document.getElementById('colorInvertToggle').title = '涨跌颜色反转';
+  }
+  // Re-render sparklines with correct colors
+  coins.forEach(c => {
+    const spEl = document.getElementById('sp-' + c.symbol);
+    if (spEl) spEl.innerHTML = sparklineSvg(c.symbol);
+  });
+}
+
+// ── Device Vibration (mobile) ──
+function vibrateDevice(pattern) {
+  if ('vibrate' in navigator) {
+    try { navigator.vibrate(pattern); } catch {}
+  }
+}
+
+// ── Enhanced Browser Notification + Vibration ──
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendBrowserNotification(title, body, tag) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const n = new Notification(title, {
+        body: body,
+        tag: tag || 'crypto-alert',
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>',
+        requireInteraction: true,
+      });
+      // Auto close after 8s
+      setTimeout(() => n.close(), 8000);
+    } catch {}
+  }
+}
+
 // ── Alerts ──
 function openAlertModal() {
   // 首次交互时初始化 AudioContext（浏览器要求用户手势）
@@ -2180,12 +2748,11 @@ function checkAlerts(sym, currentPrice) {
         `${msg}\n\n当前价格: $${fmtRaw(currentPrice)}\n预警条件: ${a.dir === 'above' ? '高于' : '低于'} $${fmtRaw(a.price)}\n触发时间: ${new Date().toLocaleString('zh-CN')}`
       );
 
-      // 浏览器通知
-      if (Notification.permission === 'granted') {
-        new Notification('🔔 Crypto Alert — ' + sym, { body: msg, tag: 'crypto-' + sym + '-' + a.dir });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission();
-      }
+      // 浏览器弹窗通知
+      sendBrowserNotification('🔔 Crypto Alert — ' + sym, msg, 'crypto-' + sym + '-' + a.dir);
+
+      // 手机震动（短-长-短 紧急模式）
+      vibrateDevice([100, 50, 200, 50, 100]);
     } else {
       // 价格回到正常范围，重置冷却，下次突破会重新通知
       a._everTriggered = false;
@@ -2213,7 +2780,7 @@ function showToast(msg, type = 'info') {
 // ── Export / Import ──
 function exportData() {
   const data = {
-    version: 3,
+    version: 4,
     coins,
     alerts,
     portfolio,
@@ -2223,6 +2790,8 @@ function exportData() {
     currency,
     cardView,
     soundEnabled,
+    isLightTheme,
+    colorInverted,
     notifyConfig,
     exportedAt: new Date().toISOString(),
   };
@@ -2254,6 +2823,8 @@ function importData(event) {
       if (data.refreshSec) { refreshSec = data.refreshSec; localStorage.setItem('crypto_refresh', refreshSec); }
       if (data.currency) { currency = data.currency; localStorage.setItem('crypto_currency', currency); document.getElementById('currencySelect').value = currency; }
       if (data.cardView != null) { cardView = data.cardView; localStorage.setItem('crypto_card_view', cardView ? '1' : '0'); }
+      if (data.isLightTheme != null) { isLightTheme = data.isLightTheme; localStorage.setItem('crypto_theme', isLightTheme ? 'light' : 'dark'); applyTheme(); }
+      if (data.colorInverted != null) { colorInverted = data.colorInverted; localStorage.setItem('crypto_color_invert', colorInverted ? '1' : '0'); applyColorInvert(); }
       priceHistory = {};
       prevPrices = {};
       initSelects();
@@ -2274,18 +2845,31 @@ async function fetchTrending() {
   groupsEl.innerHTML = '<div class="trending-loading"><span class="spinner"></span>加载热搜榜…</div>';
   document.getElementById('trendingCount').textContent = '--';
 
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+  const seen = new Set();
+  trendingCoins = [];
+
   try {
-    const [trending, topCoins, gainers] = await Promise.allSettled([
-      fetchJson('https://api.coingecko.com/api/v3/search/trending', 10000),
-      fetchJson('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1', 10000),
-      fetchJson('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=price_change_percentage_24h_desc&per_page=10&page=1', 10000),
-    ]);
+    // 串行请求，每个间隔 800ms 避免触发 CoinGecko 限流
+    let trendingData = null, topData = null, gainersData = null;
 
-    const seen = new Set();
-    trendingCoins = [];
+    try {
+      trendingData = await fetchJson('https://api.coingecko.com/api/v3/search/trending', 10000);
+    } catch {}
+    await delay(800);
 
-    if (trending.status === 'fulfilled' && trending.value?.coins) {
-      trending.value.coins.forEach((item, i) => {
+    try {
+      topData = await fetchJson('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1', 10000);
+    } catch {}
+    await delay(800);
+
+    try {
+      gainersData = await fetchJson('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=price_change_percentage_24h_desc&per_page=10&page=1', 10000);
+    } catch {}
+
+    // 解析热搜
+    if (trendingData?.coins) {
+      trendingData.coins.forEach((item, i) => {
         const c = item.item;
         const sym = (c.symbol || '').toUpperCase();
         if (!sym || seen.has(sym)) return;
@@ -2300,8 +2884,9 @@ async function fetchTrending() {
       });
     }
 
-    if (topCoins.status === 'fulfilled' && Array.isArray(topCoins.value)) {
-      topCoins.value.forEach(c => {
+    // 解析市值头部
+    if (Array.isArray(topData)) {
+      topData.forEach(c => {
         const sym = (c.symbol || '').toUpperCase();
         if (!sym || seen.has(sym)) return;
         seen.add(sym);
@@ -2314,8 +2899,9 @@ async function fetchTrending() {
       });
     }
 
-    if (gainers.status === 'fulfilled' && Array.isArray(gainers.value)) {
-      gainers.value.forEach(c => {
+    // 解析涨幅榜
+    if (Array.isArray(gainersData)) {
+      gainersData.forEach(c => {
         const sym = (c.symbol || '').toUpperCase();
         if (!sym || seen.has(sym)) return;
         seen.add(sym);
@@ -2328,10 +2914,34 @@ async function fetchTrending() {
       });
     }
 
+    // 有数据就缓存，下次请求失败时可以兜底
+    if (trendingCoins.length) {
+      localStorage.setItem('crypto_trending_cache', JSON.stringify({
+        data: trendingCoins,
+        ts: Date.now(),
+      }));
+    }
+
     document.getElementById('trendingCount').textContent = trendingCoins.length + ' 个';
-    renderTrending();
-  } catch (e) {
+
+  } catch (e) {}
+
+  // 如果本次请求无数据，尝试用本地缓存兜底
+  if (!trendingCoins.length) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('crypto_trending_cache') || 'null');
+      if (cached?.data?.length) {
+        trendingCoins = cached.data;
+        const ageMin = Math.round((Date.now() - cached.ts) / 60000);
+        document.getElementById('trendingCount').textContent = trendingCoins.length + ' 个（缓存' + (ageMin < 1 ? '<1' : ageMin) + '分钟前）';
+      }
+    } catch {}
+  }
+
+  if (!trendingCoins.length) {
     groupsEl.innerHTML = '<div class="trending-err">⚠️ 热搜加载失败，请稍后重试</div>';
+  } else {
+    renderTrending();
   }
 }
 
@@ -2732,6 +3342,14 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       toggleSound();
       break;
+    case 't': case 'T':
+      e.preventDefault();
+      toggleTheme();
+      break;
+    case 'c': case 'C':
+      e.preventDefault();
+      toggleColorInvert();
+      break;
   }
 });
 
@@ -2950,14 +3568,18 @@ async function testNotify(ch) {
 // ── Boot ──
 initSelects();
 document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇';
+applyTheme();
+applyColorInvert();
 render();
-fetchPrices();
+binanceWsConnect();       // init WebSocket for major coins
+fetchPrices();            // poll non-WS coins
 timer = setInterval(fetchPrices, refreshSec * 1000);
 fetchTrending();
 fetchCurrencyRates();
 fetchMarketOverview();
-setInterval(fetchMarketOverview, 120000); // refresh market overview every 2min
+setInterval(fetchMarketOverview, 120000);
 setTimeout(showOnboarding, 1500);
+setTimeout(requestNotificationPermission, 3000);
 </script>
 </body>
 </html>
