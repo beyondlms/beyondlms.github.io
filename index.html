@@ -3888,7 +3888,8 @@ function saveNotifyConfig() {
 }
 
 function toggleNotifyChannel(ch) {
-  const el = document.getElementById('notify' + ch.charAt(0).toUpperCase() + ch.slice(1));
+  const idMap = { serverchan: 'notifyServerChan', pushplus: 'notifyPushplus', email: 'notifyEmail', iosPush: 'notifyIosPush' };
+  const el = document.getElementById(idMap[ch]);
   notifyConfig[ch].enabled = el?.checked || false;
   saveNotifyConfig();
 }
