@@ -2771,6 +2771,8 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pageshow', (e) => {
   recoverAudioContext();
   setTimeout(recoverAudioContext, 500);
+  // Restore notification toggle state on bfcache restore
+  restoreNotifyToggleState();
 });
 
 // pagehide (iOS freezes page — prepare for recovery)
@@ -3068,30 +3070,34 @@ function sendBrowserNotification(title, body, tag) {
       data: { url: '/' },
     };
 
-    // Try Service Worker registration first (better iOS support)
+    // Try Service Worker first (better iOS lock screen support — SW notifications persist)
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.ready.then(reg => {
         reg.showNotification(title, opts);
       }).catch(() => {
-        // Fallback to regular Notification
+        new Notification(title, opts);
+      });
+    } else if ('serviceWorker' in navigator) {
+      // No controller yet — try registering SW then show notification
+      registerServiceWorker().then(ok => {
+        if (ok && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, opts);
+          });
+        } else {
+          new Notification(title, opts);
+        }
+      }).catch(() => {
         new Notification(title, opts);
       });
     } else {
-      // No SW controller — use direct Notification API
       new Notification(title, opts);
-    }
-
-    // Also trigger sound fallback for lock screen scenarios
-    // (browser notification sound may not play on lock screen, so we try to beep too)
-    if (!document.hidden) {
-      // Only play fallback beep if page is visible (won't work in background anyway)
     }
 
     // iOS visual haptic as extra feedback
     if (isIOS) doVisualHaptic();
   } catch (e) {
     console.warn('Notification failed:', e);
-    // Last resort: try basic Notification constructor
     try { new Notification(title, { body: body }); } catch {}
   }
 }
@@ -3865,16 +3871,25 @@ function showOnboarding() {
 let notifyConfig = loadNotifyConfig();
 
 function loadNotifyConfig() {
-  try {
-    const s = localStorage.getItem('crypto_notify');
-    if (s) return JSON.parse(s);
-  } catch {}
-  return {
+  const fallback = {
     serverchan: { enabled: false, key: '' },
     pushplus: { enabled: false, token: '' },
     email: { enabled: false, to: '', serviceId: '', templateId: '', publicKey: '' },
     iosPush: { enabled: false },
   };
+  // Try localStorage first, then sessionStorage backup (iOS may clear localStorage under memory pressure)
+  for (const storage of [localStorage, sessionStorage]) {
+    try {
+      const s = storage.getItem('crypto_notify');
+      if (s) {
+        const cfg = JSON.parse(s);
+        // Ensure iosPush field exists (for older saved configs)
+        if (!cfg.iosPush) cfg.iosPush = { enabled: false };
+        return cfg;
+      }
+    } catch {}
+  }
+  return fallback;
 }
 function saveNotifyConfig() {
   // Read from DOM
@@ -3884,7 +3899,26 @@ function saveNotifyConfig() {
   notifyConfig.email.serviceId = document.getElementById('emailServiceId')?.value || notifyConfig.email.serviceId;
   notifyConfig.email.templateId = document.getElementById('emailTemplateId')?.value || notifyConfig.email.templateId;
   notifyConfig.email.publicKey = document.getElementById('emailPublicKey')?.value || notifyConfig.email.publicKey;
-  localStorage.setItem('crypto_notify', JSON.stringify(notifyConfig));
+  const json = JSON.stringify(notifyConfig);
+  try { localStorage.setItem('crypto_notify', json); } catch {}
+  try { sessionStorage.setItem('crypto_notify', json); } catch {}
+}
+
+// Restore iOS push toggle state from persisted config — called on visibilitychange/pageshow
+// to handle iOS bfcache restores where the DOM checkbox may have reverted
+function restoreNotifyToggleState() {
+  try {
+    const s = localStorage.getItem('crypto_notify') || sessionStorage.getItem('crypto_notify');
+    if (s) {
+      const cfg = JSON.parse(s);
+      if (cfg.iosPush?.enabled && notifyConfig.iosPush) {
+        notifyConfig.iosPush.enabled = true;
+      }
+    }
+  } catch {}
+  // Sync checkbox if modal is currently open
+  const el = document.getElementById('notifyIosPush');
+  if (el) el.checked = !!(notifyConfig.iosPush?.enabled);
 }
 
 function toggleNotifyChannel(ch) {
@@ -3892,6 +3926,19 @@ function toggleNotifyChannel(ch) {
   const el = document.getElementById(idMap[ch]);
   notifyConfig[ch].enabled = el?.checked || false;
   saveNotifyConfig();
+  // For iOS push: if enabling, proactively request notification permission
+  if (ch === 'iosPush' && notifyConfig.iosPush.enabled) {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(perm => {
+        updateIosPushBtn();
+        if (perm === 'granted') {
+          registerServiceWorker().catch(() => {});
+        }
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      registerServiceWorker().catch(() => {});
+    }
+  }
 }
 
 // ── iOS Push Notification ──
@@ -3910,7 +3957,11 @@ function updateIosPushBtn() {
   if (perm === 'granted') {
     btn.textContent = '✅ 已授权';
     btn.disabled = true;
-    status.textContent = '✅ 通知权限已开启，预警触发时会在锁屏弹出通知';
+    if (isIOS) {
+      status.innerHTML = '✅ 通知权限已开启<br><span style="font-size:0.62rem;color:var(--muted)">⚠️ iOS 限制：Safari 在后台时无法推送。请保持页面在前台或添加到主屏幕以获得最佳体验</span>';
+    } else {
+      status.textContent = '✅ 通知权限已开启，预警触发时会弹出通知';
+    }
     status.className = 'notify-status ok';
   } else if (perm === 'denied') {
     btn.textContent = '已拒绝（需去设置开启）';
@@ -3936,6 +3987,11 @@ async function enableIosPush() {
     if (perm === 'granted') {
       // Register service worker for better background handling
       await registerServiceWorker();
+      // Ensure the toggle is ON and persisted
+      notifyConfig.iosPush.enabled = true;
+      const el = document.getElementById('notifyIosPush');
+      if (el) el.checked = true;
+      saveNotifyConfig();
       showToast('✅ 通知权限已开启');
       // Send a test notification
       setTimeout(() => {
@@ -3953,10 +4009,9 @@ async function enableIosPush() {
 let swRegistered = false;
 async function registerServiceWorker() {
   if (swRegistered || !('serviceWorker' in navigator)) return false;
-  try {
-    // Write service worker to a real file via a minimal inline approach
-    // We register it at the same path as the page for maximum compatibility
-    const swCode = `
+  // Already has a controller — good enough
+  if (navigator.serviceWorker.controller) { swRegistered = true; return true; }
+  const swCode = `
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
 self.addEventListener('notificationclick', e => {
@@ -3967,28 +4022,51 @@ self.addEventListener('notificationclick', e => {
   }));
 });
 `;
-    // Try blob URL first (works on Android Chrome)
-    try {
-      const blob = new Blob([swCode], { type: 'application/javascript' });
-      const swUrl = URL.createObjectURL(blob);
-      const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
-      swRegistered = true;
-      await navigator.serviceWorker.ready;
-      return true;
-    } catch (blobErr) {
-      // Blob SW not supported (common on iOS) — try registering at current path
-      // On iOS Safari, SW must be a real file. Try to register at './sw-crypto.js'
-      // If that fails too, we'll just rely on direct Notification API
-      console.warn('Blob SW failed, trying fallback:', blobErr);
-      return false;
+  // Strategy 1: Blob URL (works on Android Chrome, not on iOS Safari)
+  try {
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    await navigator.serviceWorker.register(swUrl, { scope: '/' });
+    swRegistered = true;
+    await navigator.serviceWorker.ready;
+    return true;
+  } catch {}
+  // Strategy 2: Register relative to current page path (works if served from same origin)
+  try {
+    // Try common SW file paths
+    for (const path of ['./sw.js', '/sw.js', 'sw-crypto.js']) {
+      try {
+        const reg = await navigator.serviceWorker.register(path, { scope: '/' });
+        swRegistered = true;
+        await navigator.serviceWorker.ready;
+        return true;
+      } catch {}
     }
-  } catch (e) {
-    console.warn('Service Worker registration failed:', e);
-    return false;
-  }
+  } catch {}
+  // Strategy 3: data: URL (limited browser support, but worth trying)
+  try {
+    const dataUrl = 'data:application/javascript;base64,' + btoa(swCode);
+    await navigator.serviceWorker.register(dataUrl, { scope: '/' });
+    swRegistered = true;
+    await navigator.serviceWorker.ready;
+    return true;
+  } catch {}
+  console.warn('All SW registration strategies failed — using direct Notification API');
+  return false;
 }
 
 function openNotifyModal() {
+  // Re-sync notifyConfig from storage in case it was updated in another tab or by lifecycle events
+  try {
+    const s = localStorage.getItem('crypto_notify') || sessionStorage.getItem('crypto_notify');
+    if (s) {
+      const cfg = JSON.parse(s);
+      if (cfg.iosPush?.enabled && notifyConfig.iosPush) {
+        notifyConfig.iosPush.enabled = true;
+      }
+    }
+  } catch {}
+
   // Populate from saved config
   const sc = notifyConfig.serverchan;
   const pp = notifyConfig.pushplus;
@@ -4003,11 +4081,18 @@ function openNotifyModal() {
   document.getElementById('emailTemplateId').value = em.templateId || '';
   document.getElementById('emailPublicKey').value = em.publicKey || '';
 
-  // iOS Push section
+  // iOS Push section — show on iOS or if previously enabled (handles iPadOS/desktop Safari with Notification support)
   const iosSection = document.getElementById('iosPushChannel');
-  if (isIOS) {
+  const hasNotificationApi = 'Notification' in window;
+  const iosPushWasEnabled = notifyConfig.iosPush?.enabled;
+  if (isIOS || (hasNotificationApi && iosPushWasEnabled)) {
     iosSection.style.display = '';
-    document.getElementById('notifyIosPush').checked = notifyConfig.iosPush?.enabled || false;
+    document.getElementById('notifyIosPush').checked = !!(notifyConfig.iosPush?.enabled);
+    updateIosPushBtn();
+  } else if (hasNotificationApi) {
+    // Show on any browser that supports Notification API
+    iosSection.style.display = '';
+    document.getElementById('notifyIosPush').checked = false;
     updateIosPushBtn();
   } else {
     iosSection.style.display = 'none';
@@ -4184,6 +4269,8 @@ fetchTrending();
 fetchCurrencyRates();
 fetchMarketOverview();
 setInterval(fetchMarketOverview, 120000);
+// Restore notification toggle state on boot (handles iOS bfcache / page restore)
+restoreNotifyToggleState();
 
 // ── Wake Lock + Timer Recovery ──
 // Prevent page from being fully frozen in background (critical for notification reliability)
@@ -4210,6 +4297,8 @@ document.addEventListener('visibilitychange', () => {
     // Reconnect WebSocket if any connections are dead
     const hasLiveWs = wsConnections.some(c => c.ws && c.ws.readyState === WebSocket.OPEN);
     if (!hasLiveWs) binanceWsConnect();
+    // Restore notification toggle state (iOS bfcache may revert DOM checkboxes)
+    restoreNotifyToggleState();
   }
 });
 
@@ -4222,6 +4311,7 @@ document.addEventListener('resume', () => {
   if (timer) clearInterval(timer);
   timer = setInterval(fetchPrices, refreshSec * 1000);
   fetchPrices();
+  restoreNotifyToggleState();
 });
 setTimeout(showOnboarding, 1500);
 setTimeout(requestNotificationPermission, 3000);
