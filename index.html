@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1021,6 +1020,20 @@
   @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
   @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
 
+  /* iOS visual haptic */
+  @keyframes hapticFlash {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  @keyframes bellShake {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    15% { transform: rotate(14deg) scale(1.15); }
+    30% { transform: rotate(-12deg) scale(1.12); }
+    45% { transform: rotate(10deg) scale(1.1); }
+    60% { transform: rotate(-8deg) scale(1.05); }
+    75% { transform: rotate(4deg) scale(1.02); }
+  }
+
   /* ── Responsive ── */
   @media (min-width: 1024px) {
     body { padding: 40px 24px; }
@@ -1712,6 +1725,9 @@
 <div class="modal-overlay" id="alertModalOverlay" onclick="if(event.target===this)closeAlertModal()">
   <div class="modal">
     <h3>🔔 价格预警管理</h3>
+    <div id="iosAlertHint" style="display:none;margin-bottom:12px;padding:8px 12px;background:rgba(255,165,0,0.1);border:1px solid rgba(255,165,0,0.2);border-radius:8px;font-size:0.72rem;color:#e8a030;line-height:1.5;">
+      📱 iOS 提示：系统不支持网页振动，已用屏幕闪烁代替。首次请点 <strong>🔊 测试</strong>按钮激活声音。建议开启「通知渠道」中的微信推送作为备用提醒。
+    </div>
     <div id="alertListWrap" class="alert-list"></div>
     <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
       <div class="modal-field">
@@ -1728,8 +1744,30 @@
           <input id="alertPrice" type="number" step="any" placeholder="目标价格 (USD)" style="flex:1;">
         </div>
       </div>
+      <div class="modal-field">
+        <label>提醒间隔（触发后多久再次提醒）</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="alertInterval" type="number" min="1" value="30" style="flex:1;">
+          <select id="alertIntervalUnit" style="flex:0 0 80px;">
+            <option value="s">秒</option>
+            <option value="m">分钟</option>
+          </select>
+          <select id="alertIntervalPreset" style="flex:0 0 110px;" onchange="applyAlertPreset(this.value)">
+            <option value="">快速选择</option>
+            <option value="5s">5秒</option>
+            <option value="10s">10秒</option>
+            <option value="30s">30秒</option>
+            <option value="1m">1分钟</option>
+            <option value="5m">5分钟</option>
+            <option value="15m">15分钟</option>
+            <option value="30m">30分钟</option>
+            <option value="60m">1小时</option>
+          </select>
+        </div>
+      </div>
       <div class="modal-actions">
         <button class="modal-btn-secondary" onclick="closeAlertModal()">关闭</button>
+        <button class="modal-btn-secondary" onclick="testAlertSound()" title="测试声音" style="flex:0 0 auto;padding:10px 14px;">🔊 测试</button>
         <button class="modal-btn-primary" onclick="addAlert()">添加预警</button>
       </div>
     </div>
@@ -1857,6 +1895,26 @@
       <div class="notify-status" id="emailStatus"></div>
     </div>
 
+    <!-- iOS 锁屏通知 -->
+    <div class="notify-channel" id="iosPushChannel" style="display:none;">
+      <div class="notify-channel-header">
+        <span class="notify-channel-title"><span class="ch-icon">🍎</span> iOS 锁屏通知</span>
+        <label class="notify-toggle">
+          <input type="checkbox" id="notifyIosPush" onchange="toggleNotifyChannel('iosPush')">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="notify-channel-desc">
+        iOS 16.4+ 支持，预警触发时会在锁屏/灵动岛下方弹出通知横幅。<br>
+        ⚠️ 需要「添加到主屏幕」后才可使用，后台关闭时无法接收。
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="notify-test-btn" id="iosPushEnableBtn" onclick="enableIosPush()">开启通知权限</button>
+        <button class="notify-test-btn" onclick="testNotify('iosPush')">发送测试</button>
+      </div>
+      <div class="notify-status" id="iosPushStatus"></div>
+    </div>
+
     <div class="modal-actions" style="margin-top:12px;">
       <button class="modal-btn-primary" onclick="closeNotifyModal()" style="flex:1;">完成</button>
     </div>
@@ -1900,7 +1958,7 @@ let cardView = localStorage.getItem('crypto_card_view') === '1';
 let priceHistory = {}; // { 'BTC': [p1, p2, ...] } for sparklines
 let prevPrices = {};   // { 'BTC': lastPrice } for flash animation
 let soundEnabled = localStorage.getItem('crypto_sound') !== '0'; // default on
-let audioCtx = null; // lazy init AudioContext
+// audioCtx defined in Sound Engine section below
 let isLightTheme = localStorage.getItem('crypto_theme') === 'light';
 let colorInverted = localStorage.getItem('crypto_color_invert') === '1';
 
@@ -2495,11 +2553,60 @@ async function fetchPrices() {
 function setStatus(t,m) { document.getElementById('dot').className='dot '+t; document.getElementById('status').textContent=m; }
 
 // ── Sound Engine (Web Audio API) ──
+let audioCtx = null; // lazy init AudioContext
+let audioUnlocked = false; // iOS requires user gesture to unlock
+
 function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // iOS: may be suspended after background — resume on demand
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  // iOS: context may have been closed entirely — recreate
+  if (audioCtx.state === 'closed') {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
   return audioCtx;
 }
+
+// iOS: unlock audio on first user gesture (required for PWA)
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    // Play a silent buffer to fully unlock
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    src.stop(0.001);
+  } catch {}
+  // Remove listeners after first unlock
+  document.removeEventListener('touchstart', unlockAudio);
+  document.removeEventListener('touchend', unlockAudio);
+  document.removeEventListener('click', unlockAudio);
+}
+
+// Register unlock on first interaction
+document.addEventListener('touchstart', unlockAudio, { once: false, passive: true });
+document.addEventListener('touchend', unlockAudio, { once: false, passive: true });
+document.addEventListener('click', unlockAudio, { once: false });
+
+// iOS PWA: when app returns from background, wake up AudioContext
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && audioCtx) {
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  }
+});
 
 // 小爱风格清脆提示音：两个快速上升音阶 + 余韵
 function playAlertSound() {
@@ -2639,32 +2746,88 @@ function applyColorInvert() {
   });
 }
 
-// ── Device Vibration (mobile) ──
+// ── Device Vibration + Haptic Feedback (mobile) ──
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 function vibrateDevice(pattern) {
-  if ('vibrate' in navigator) {
+  if ('vibrate' in navigator && !isIOS) {
     try { navigator.vibrate(pattern); } catch {}
+  }
+  // iOS fallback: visual haptic — screen flash + badge pulse
+  if (isIOS) {
+    doVisualHaptic();
+  }
+}
+
+// iOS has no vibration API, so we simulate "haptic feedback" with visual cues
+function doVisualHaptic() {
+  // Brief full-screen flash overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;pointer-events:none;
+    background:rgba(255,65,108,0.18);
+    animation: hapticFlash 0.4s ease-out forwards;
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 500);
+
+  // Pulse the alert badge bell icon
+  const bell = document.querySelector('[onclick="openAlertModal()"]');
+  if (bell) {
+    bell.style.animation = 'none';
+    void bell.offsetWidth;
+    bell.style.animation = 'bellShake 0.5s ease-in-out 3';
+    setTimeout(() => { bell.style.animation = ''; }, 1600);
   }
 }
 
 // ── Enhanced Browser Notification + Vibration ──
 function requestNotificationPermission() {
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
+    // On iOS, don't auto-prompt — wait for user to explicitly enable via the notify modal
+    // iOS shows a system dialog that blocks the page, which is bad UX if it pops up randomly
+    if (!isIOS) {
+      Notification.requestPermission();
+    }
+  }
+  // Try registering SW for better notification support
+  if ('serviceWorker' in navigator) {
+    registerServiceWorker().catch(() => {});
   }
 }
 
 function sendBrowserNotification(title, body, tag) {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try {
-      const n = new Notification(title, {
-        body: body,
-        tag: tag || 'crypto-alert',
-        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>',
-        requireInteraction: true,
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    const opts = {
+      body: body,
+      tag: tag || 'crypto-alert',
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>',
+      badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💰</text></svg>',
+      requireInteraction: true,
+      silent: false,
+      timestamp: Date.now(),
+      data: { url: '/' },
+    };
+
+    // Try Service Worker registration first (better iOS support)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, opts);
+      }).catch(() => {
+        // Fallback to regular Notification
+        new Notification(title, opts);
       });
-      // Auto close after 8s
-      setTimeout(() => n.close(), 8000);
-    } catch {}
+    } else {
+      new Notification(title, opts);
+    }
+
+    // iOS visual haptic as extra feedback
+    if (isIOS) doVisualHaptic();
+  } catch (e) {
+    console.warn('Notification failed:', e);
   }
 }
 
@@ -2672,10 +2835,25 @@ function sendBrowserNotification(title, body, tag) {
 function openAlertModal() {
   // 首次交互时初始化 AudioContext（浏览器要求用户手势）
   getAudioCtx();
+  unlockAudio();
   const sel = document.getElementById('alertCoin');
   sel.innerHTML = coins.map(c => `<option value="${c.symbol}">${c.symbol} - ${c.name}</option>`).join('');
   renderAlertList();
+  // Show iOS hint if on iOS
+  document.getElementById('iosAlertHint').style.display = isIOS ? 'block' : 'none';
   document.getElementById('alertModalOverlay').classList.add('active');
+}
+
+function testAlertSound() {
+  getAudioCtx();
+  unlockAudio();
+  // Play all three sound types sequentially so user can hear the difference
+  playAlertSound();
+  setTimeout(() => playNotifySound(), 500);
+  setTimeout(() => playUrgentSound(), 1100);
+  // iOS: also trigger visual haptic
+  if (isIOS) doVisualHaptic();
+  showToast('🔊 播放测试声音' + (isIOS ? '（iOS 无振动，已使用视觉反馈代替）' : ''));
 }
 function closeAlertModal() {
   document.getElementById('alertModalOverlay').classList.remove('active');
@@ -2685,14 +2863,24 @@ function addAlert() {
   const dir = document.getElementById('alertDir').value;
   const price = parseFloat(document.getElementById('alertPrice').value);
   if (!sym || isNaN(price) || price <= 0) { showToast('请输入有效价格', 'error'); return; }
+
+  // Read reminder interval
+  let intervalVal = parseInt(document.getElementById('alertInterval').value) || 30;
+  const intervalUnit = document.getElementById('alertIntervalUnit').value;
+  if (intervalVal < 1) intervalVal = 1;
+  const cooldownMs = intervalUnit === 'm' ? intervalVal * 60000 : intervalVal * 1000;
+
   if (alerts.some(a => a.symbol === sym && a.dir === dir && a.price === price)) { showToast('预警已存在', 'error'); return; }
-  alerts.push({ symbol: sym, dir, price, lastNotified: 0 });
+  alerts.push({ symbol: sym, dir, price, lastNotified: 0, cooldownMs });
   saveAlerts();
   document.getElementById('alertPrice').value = '';
+  document.getElementById('alertInterval').value = '30';
+  document.getElementById('alertIntervalUnit').value = 's';
   renderAlertList();
   render();
   playNotifySound();
-  showToast(`已添加 ${sym} ${dir === 'above' ? '>' : '<'} ${fmtRaw(price)} 预警`);
+  const intervalText = cooldownMs >= 60000 ? (cooldownMs / 60000) + '分钟' : (cooldownMs / 1000) + '秒';
+  showToast(`已添加 ${sym} ${dir === 'above' ? '>' : '<'} ${fmtRaw(price)} 预警（间隔 ${intervalText}）`);
 }
 function removeAlert(idx) {
   alerts.splice(idx, 1);
@@ -2705,15 +2893,26 @@ function renderAlertList() {
   if (!alerts.length) { wrap.innerHTML = '<div class="alert-empty">暂无预警，添加一个吧 👆</div>'; return; }
   wrap.innerHTML = alerts.map((a, i) => {
     const dirText = a.dir === 'above' ? '高于 ▲' : '低于 ▼';
+    const cd = a.cooldownMs || ALERT_COOLDOWN_DEFAULT_MS;
+    const intervalText = cd >= 60000 ? (cd / 60000) + 'min' : (cd / 1000) + 's';
     return `<div class="alert-item">
       <span class="alert-sym">${a.symbol}</span>
-      <span class="alert-cond">${dirText} ${fmtRaw(a.price)}</span>
+      <span class="alert-cond">${dirText} ${fmtRaw(a.price)} <span style="color:var(--muted);font-size:0.68rem;">⏱${intervalText}</span></span>
       <button class="alert-del" onclick="removeAlert(${i})" title="删除">✕</button>
     </div>`;
   }).join('');
 }
 
-const ALERT_COOLDOWN_MS = 30000; // 同一预警 30 秒内不重复通知
+const ALERT_COOLDOWN_DEFAULT_MS = 30000; // 默认 30 秒冷却
+
+function applyAlertPreset(val) {
+  if (!val) return;
+  const m = val.match(/^(\d+)(s|m)$/);
+  if (!m) return;
+  document.getElementById('alertInterval').value = m[1];
+  document.getElementById('alertIntervalUnit').value = m[2];
+  document.getElementById('alertIntervalPreset').value = '';
+}
 
 function checkAlerts(sym, currentPrice) {
   const now = Date.now();
@@ -2725,8 +2924,9 @@ function checkAlerts(sym, currentPrice) {
     const hit = (a.dir === 'above' && currentPrice >= a.price) ||
                 (a.dir === 'below' && currentPrice <= a.price);
     if (hit) {
-      // 冷却期内跳过（但每次刷新如果条件持续满足，冷却过了就会再通知）
-      if (now - (a.lastNotified || 0) < ALERT_COOLDOWN_MS) return;
+      // Use per-alert cooldown (fallback to default)
+      const cooldown = a.cooldownMs || ALERT_COOLDOWN_DEFAULT_MS;
+      if (now - (a.lastNotified || 0) < cooldown) return;
 
       a.lastNotified = now;
       saveAlerts();
@@ -3408,6 +3608,7 @@ function loadNotifyConfig() {
     serverchan: { enabled: false, key: '' },
     pushplus: { enabled: false, token: '' },
     email: { enabled: false, to: '', serviceId: '', templateId: '', publicKey: '' },
+    iosPush: { enabled: false },
   };
 }
 function saveNotifyConfig() {
@@ -3427,6 +3628,102 @@ function toggleNotifyChannel(ch) {
   saveNotifyConfig();
 }
 
+// ── iOS Push Notification ──
+function updateIosPushBtn() {
+  const btn = document.getElementById('iosPushEnableBtn');
+  const status = document.getElementById('iosPushStatus');
+  if (!btn) return;
+  if (!('Notification' in window)) {
+    btn.textContent = '此浏览器不支持';
+    btn.disabled = true;
+    status.textContent = '❌ 当前 iOS 版本不支持 Web 通知，请升级到 iOS 16.4+';
+    status.className = 'notify-status err';
+    return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    btn.textContent = '✅ 已授权';
+    btn.disabled = true;
+    status.textContent = '✅ 通知权限已开启，预警触发时会在锁屏弹出通知';
+    status.className = 'notify-status ok';
+  } else if (perm === 'denied') {
+    btn.textContent = '已拒绝（需去设置开启）';
+    btn.disabled = true;
+    status.textContent = '❌ 通知权限被拒绝，请到 iPhone 设置 → Safari → 通知 中开启';
+    status.className = 'notify-status err';
+  } else {
+    btn.textContent = '开启通知权限';
+    btn.disabled = false;
+    status.textContent = '';
+    status.className = 'notify-status';
+  }
+}
+
+async function enableIosPush() {
+  if (!('Notification' in window)) {
+    showToast('当前 iOS 版本不支持 Web 通知，请升级到 iOS 16.4+', 'error');
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    updateIosPushBtn();
+    if (perm === 'granted') {
+      // Register service worker for better background handling
+      await registerServiceWorker();
+      showToast('✅ 通知权限已开启');
+      // Send a test notification
+      setTimeout(() => {
+        sendBrowserNotification('🎉 Crypto Monitor', '通知已就绪！价格预警触发时会在锁屏弹出通知。', 'crypto-test');
+      }, 500);
+    } else if (perm === 'denied') {
+      showToast('通知权限被拒绝，请到 iPhone 设置中手动开启', 'error');
+    }
+  } catch (e) {
+    showToast('开启通知失败: ' + e.message, 'error');
+  }
+}
+
+// Register a minimal service worker for iOS background notification support
+let swRegistered = false;
+async function registerServiceWorker() {
+  if (swRegistered || !('serviceWorker' in navigator)) return false;
+  try {
+    // Create a minimal service worker as a blob URL
+    const swCode = `
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : {};
+  e.waitUntil(self.registration.showNotification(data.title || 'Crypto Alert', {
+    body: data.body || '',
+    icon: data.icon || '',
+    tag: data.tag || 'crypto-alert',
+    requireInteraction: true,
+    data: data,
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({ type: 'window' }).then(arr => {
+    for (const c of arr) { if ('focus' in c) return c.focus(); }
+    if (clients.openWindow) return clients.openWindow('/');
+  }));
+});
+`;
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    // Note: blob SW may not work on all iOS versions, but try anyway
+    const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+    swRegistered = true;
+    await navigator.serviceWorker.ready;
+    return true;
+  } catch (e) {
+    // Blob SW not supported, try minimal alternative
+    console.warn('Service Worker registration failed:', e);
+    return false;
+  }
+}
+
 function openNotifyModal() {
   // Populate from saved config
   const sc = notifyConfig.serverchan;
@@ -3441,8 +3738,19 @@ function openNotifyModal() {
   document.getElementById('emailServiceId').value = em.serviceId || '';
   document.getElementById('emailTemplateId').value = em.templateId || '';
   document.getElementById('emailPublicKey').value = em.publicKey || '';
+
+  // iOS Push section
+  const iosSection = document.getElementById('iosPushChannel');
+  if (isIOS) {
+    iosSection.style.display = '';
+    document.getElementById('notifyIosPush').checked = notifyConfig.iosPush?.enabled || false;
+    updateIosPushBtn();
+  } else {
+    iosSection.style.display = 'none';
+  }
+
   // Clear status
-  ['serverchanStatus','pushplusStatus','emailStatus'].forEach(id => {
+  ['serverchanStatus','pushplusStatus','emailStatus','iosPushStatus'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.textContent = ''; el.className = 'notify-status'; }
   });
@@ -3459,6 +3767,7 @@ async function sendExternalNotification(title, body) {
   const sc = notifyConfig.serverchan;
   const pp = notifyConfig.pushplus;
   const em = notifyConfig.email;
+  const iosP = notifyConfig.iosPush;
 
   if (sc.enabled && sc.key) {
     promises.push(sendServerChan(sc.key, title, body).catch(e => console.warn('Server酱发送失败:', e)));
@@ -3468,6 +3777,10 @@ async function sendExternalNotification(title, body) {
   }
   if (em.enabled && em.to && em.serviceId && em.templateId && em.publicKey) {
     promises.push(sendEmail(em, title, body).catch(e => console.warn('Email发送失败:', e)));
+  }
+  // iOS Push (enhanced browser notification)
+  if (iosP?.enabled) {
+    promises.push(Promise.resolve(sendBrowserNotification(title, body, 'crypto-push-' + Date.now())));
   }
   await Promise.allSettled(promises);
 }
@@ -3557,6 +3870,13 @@ async function testNotify(ch) {
       await sendPushPlus(notifyConfig.pushplus.token, testTitle, testBody);
     } else if (ch === 'email') {
       await sendEmail(notifyConfig.email, testTitle, testBody);
+    } else if (ch === 'iosPush') {
+      if (!('Notification' in window)) throw new Error('当前 iOS 版本不支持 Web 通知，请升级到 iOS 16.4+');
+      if (Notification.permission !== 'granted') throw new Error('请先点击「开启通知权限」');
+      sendBrowserNotification(testTitle, testBody, 'crypto-test-' + Date.now());
+      if (statusEl) { statusEl.textContent = '✅ 通知已发送，请查看锁屏/通知中心'; statusEl.className = 'notify-status ok'; }
+      playNotifySound();
+      return;
     }
     if (statusEl) { statusEl.textContent = '✅ 发送成功，请检查接收端'; statusEl.className = 'notify-status ok'; }
     playNotifySound();
