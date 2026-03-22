@@ -2993,46 +2993,61 @@ function toggleSpell() {
   showToast(spellSymbols ? '币种将逐字母拼读 (如 B-T-C)' : '常见币种使用中文名称 (如 比特币)');
 }
 
-// ── 语音播报引擎 ──
-let zhVoice = null;        // 缓存选中的中文语音
-let speechReady = false;   // 引擎是否已预热
-let pendingSpeech = [];    // 预热前的待播报队列
-let speechQueue = [];      // 播报队列（确保依次播放不中断）
-let speechPlaying = false; // 当前是否正在播报中
+// ── 语音播报引擎 (v2 - 防静默失效) ──
+// Web Speech API 有多个已知致命问题:
+// 1. Chrome 后台挂起: speechSynthesis 被浏览器暂停但状态不变
+// 2. iOS Safari 15秒bug: 播放约15秒后无声停止
+// 3. 引擎卡在 paused 状态: resume() 无效
+// 4. onend/onerror 都不触发 → 队列永久阻塞
+// 5. 语音列表为空直到 voiceschanged 触发(但该事件有时也不触发)
 
+let zhVoice = null;           // 缓存选中的中文语音
+let speechReady = false;      // 引擎是否已预热
+let pendingSpeech = [];       // 预热前的待播报队列
+let speechQueue = [];         // 播报队列（确保依次播放不中断）
+let speechPlaying = false;    // 当前是否正在播报中
+let speechWatchdog = null;    // 当前播报的 watchdog 定时器
+let speechKeepalive = null;   // 防挂起的 keepalive 定时器
+let speechFailCount = 0;      // 连续失败次数（用于触发引擎重置）
+let speechEngineResetting = false; // 正在重置引擎
+const SPEECH_MAX_FAIL = 3;    // 连续失败 3 次触发引擎硬重置
+
+// ─── 初始化 ───
 function initSpeechEngine() {
   if (!('speechSynthesis' in window)) return;
   pickZhVoice();
-  // 预热：用极短文本激活引擎（空文本在部分浏览器会被忽略）
+  startSpeechKeepalive();
+
   if (!speechReady) {
     try {
+      // 预热：用极短文本激活引擎
+      speechSynthesis.cancel(); // 清空残留状态
       const warmUp = new SpeechSynthesisUtterance('.');
       warmUp.volume = 0.01;
-      warmUp.rate = 10; // 极快说完
-      warmUp.onend = () => { speechReady = true; flushPendingSpeech(); };
-      warmUp.onerror = () => { speechReady = true; flushPendingSpeech(); };
+      warmUp.rate = 10;
+      const warmDone = () => { speechReady = true; flushPendingSpeech(); };
+      warmUp.onend = warmDone;
+      warmUp.onerror = warmDone;
       speechSynthesis.speak(warmUp);
-      setTimeout(() => {
-        if (!speechReady) { speechReady = true; flushPendingSpeech(); }
-      }, 600);
+      // 双重保险：如果 onend 不触发
+      setTimeout(warmDone, 800);
     } catch {
       speechReady = true;
     }
   }
 }
 
+// ─── 语音选择 ───
 function pickZhVoice() {
   if (!('speechSynthesis' in window)) return;
   const all = speechSynthesis.getVoices();
   if (!all.length) return;
-  // 优先选 zh-CN
   zhVoice = all.find(v => v.lang === 'zh-CN')
     || all.find(v => v.lang.startsWith('zh'))
     || all.find(v => v.lang.startsWith('cmn'))
     || null;
 }
 
-// 加载语音列表（多策略）
 if ('speechSynthesis' in window) {
   pickZhVoice();
   speechSynthesis.onvoiceschanged = () => pickZhVoice();
@@ -3040,12 +3055,207 @@ if ('speechSynthesis' in window) {
   setTimeout(pickZhVoice, 500);
   setTimeout(pickZhVoice, 1500);
   setTimeout(pickZhVoice, 3000);
+  setTimeout(pickZhVoice, 5000);
+}
+
+// ─── Keepalive: 防止浏览器挂起 speechSynthesis ───
+// Chrome/iOS 会在后台冻结 speechSynthesis，导致后续播报无声。
+// 每 5 秒检查一次状态并恢复。
+function startSpeechKeepalive() {
+  if (speechKeepalive) return;
+  speechKeepalive = setInterval(() => {
+    if (!('speechSynthesis' in window)) return;
+    // 如果引擎被暂停，立即恢复
+    if (speechSynthesis.paused) {
+      speechSynthesis.resume();
+    }
+    // 如果引擎"卡住"了（没在播放但 speechPlaying=true），检测恢复
+    if (speechPlaying && !speechSynthesis.speaking && !speechSynthesis.pending) {
+      // 引擎没有在说话也没有待说话，但标记为 playing → 说明 onend 没触发
+      recoverStalledSpeech('keepalive检测到卡住');
+    }
+  }, 5000);
+}
+
+// ─── 前台恢复 ───
+// 页面从后台/冻结恢复时，彻底重启语音引擎
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) recoverSpeechEngine('页面恢复前台');
+});
+document.addEventListener('resume', () => recoverSpeechEngine('页面resume'));
+window.addEventListener('pageshow', () => recoverSpeechEngine('pageshow'));
+window.addEventListener('focus', () => recoverSpeechEngine('focus'));
+
+function recoverSpeechEngine(reason) {
+  if (!('speechSynthesis' in window)) return;
+  console.log(`[Speech] 恢复引擎: ${reason}`);
+  // 重启 keepalive
+  if (speechKeepalive) { clearInterval(speechKeepalive); speechKeepalive = null; }
+  startSpeechKeepalive();
+  // 确保引擎不在 paused 状态
+  if (speechSynthesis.paused) {
+    speechSynthesis.cancel(); // cancel 比 resume 更可靠
+  }
+  // 重新加载语音列表
+  pickZhVoice();
+  setTimeout(pickZhVoice, 500);
+  // 如果有播报卡住，立即恢复
+  if (speechPlaying) {
+    recoverStalledSpeech(reason);
+  }
+}
+
+// ─── 卡住恢复 ───
+function recoverStalledSpeech(reason) {
+  console.warn(`[Speech] 恢复卡住的播报: ${reason}`);
+  if (speechWatchdog) { clearTimeout(speechWatchdog); speechWatchdog = null; }
+  speechPlaying = false;
+  speechFailCount++;
+  if (speechFailCount >= SPEECH_MAX_FAIL) {
+    hardResetSpeechEngine('连续失败' + speechFailCount + '次');
+    return;
+  }
+  // 短延迟后继续队列
+  setTimeout(() => processSpeechQueue(), 500);
+}
+
+// ─── 引擎硬重置 ───
+// 当连续失败过多时，完全重建 speechSynthesis 状态
+function hardResetSpeechEngine(reason) {
+  if (speechEngineResetting) return;
+  speechEngineResetting = true;
+  console.warn(`[Speech] 硬重置引擎: ${reason}`);
+  try { speechSynthesis.cancel(); } catch {}
+  speechFailCount = 0;
+  speechPlaying = false;
+  if (speechWatchdog) { clearTimeout(speechWatchdog); speechWatchdog = null; }
+  // 保存未播放的队列
+  const remaining = [...speechQueue];
+  speechQueue = [];
+  // 短暂延迟后重新预热并恢复队列
+  setTimeout(() => {
+    speechEngineResetting = false;
+    speechReady = false;
+    speechQueue = remaining;
+    pendingSpeech = [];
+    initSpeechEngine();
+  }, 1000);
+}
+
+// ─── 核心播放 ───
+function doSpeak(text) {
+  if (!('speechSynthesis' in window)) { speechPlaying = false; processSpeechQueue(); return; }
+
+  // 先清理旧的 watchdog
+  if (speechWatchdog) { clearTimeout(speechWatchdog); speechWatchdog = null; }
+
+  try {
+    // 确保引擎不卡在 paused
+    if (speechSynthesis.paused) {
+      speechSynthesis.cancel();
+    }
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-CN';
+    utter.rate = 1.0;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    if (zhVoice) utter.voice = zhVoice;
+
+    let finished = false;
+    const finish = (reason) => {
+      if (finished) return;
+      finished = true;
+      speechFailCount = 0; // 成功播放，重置失败计数
+      if (speechWatchdog) { clearTimeout(speechWatchdog); speechWatchdog = null; }
+      speechPlaying = false;
+      setTimeout(() => processSpeechQueue(), 200);
+    };
+
+    utter.onend = () => finish('onend');
+    utter.onerror = (e) => {
+      console.warn('[Speech] error:', e.error);
+      // 某些错误应该跳过这条继续（如 'canceled'）
+      if (e.error === 'canceled' || e.error === 'interrupted') {
+        finish('onerror:' + e.error);
+      } else {
+        speechFailCount++;
+        finish('onerror:' + e.error);
+      }
+    };
+
+    // ─── Watchdog: 如果 onend 不触发，用超时兜底 ───
+    // 估算正常播放时长: 中文约 3-4 字/秒, rate=1.0
+    // 加 2 倍缓冲作为安全上限, 最少 3 秒, 最多 15 秒
+    const charCount = text.replace(/\s/g, '').length;
+    const estDurationMs = Math.min(Math.max(charCount * 250, 3000), 12000);
+    const watchdogMs = estDurationMs + 3000;
+
+    speechWatchdog = setTimeout(() => {
+      if (!finished) {
+        console.warn(`[Speech] watchdog 超时 (${watchdogMs}ms), 强制回收`);
+        // 尝试 cancel 后重新播放这条（可能是 iOS 15秒bug）
+        try { speechSynthesis.cancel(); } catch {}
+        finish('watchdog');
+      }
+    }, watchdogMs);
+
+    speechSynthesis.speak(utter);
+
+    // 额外保险：speak 后 500ms 检查是否真的开始说了
+    setTimeout(() => {
+      if (!finished && !speechSynthesis.speaking && !speechSynthesis.pending) {
+        console.warn('[Speech] speak() 后未开始，尝试 resume');
+        try { speechSynthesis.resume(); } catch {}
+        // 再等 1 秒，如果还是没开始就回收
+        setTimeout(() => {
+          if (!finished && !speechSynthesis.speaking) {
+            console.warn('[Speech] resume 无效，强制回收');
+            try { speechSynthesis.cancel(); } catch {}
+            finish('stuck-recovery');
+          }
+        }, 1000);
+      }
+    }, 500);
+
+  } catch (e) {
+    console.warn('[Speak] exception:', e);
+    speechPlaying = false;
+    speechFailCount++;
+    if (speechFailCount >= SPEECH_MAX_FAIL) {
+      hardResetSpeechEngine('exception');
+    } else {
+      setTimeout(() => processSpeechQueue(), 500);
+    }
+  }
+}
+
+// ─── 队列处理 ───
+function processSpeechQueue() {
+  if (speechEngineResetting) return; // 正在重置，等重置完
+  if (speechPlaying) return;         // 正在播放中，等回调
+  if (!speechQueue.length) return;   // 队列空了
+
+  const next = speechQueue.shift();
+  speechPlaying = true;
+  doSpeak(next);
+}
+
+// ─── 外部接口 ───
+function speakAlert(msg) {
+  if (!voiceEnabled || !('speechSynthesis' in window)) return;
+  const cleanMsg = msg.replace(/\$/g, ' 美元 ');
+  if (!speechReady) {
+    initSpeechEngine();
+    pendingSpeech.push(cleanMsg);
+    return;
+  }
+  speechQueue.push(cleanMsg);
+  if (!speechPlaying) processSpeechQueue();
 }
 
 function flushPendingSpeech() {
-  while (pendingSpeech.length) {
-    speechQueue.push(pendingSpeech.shift());
-  }
+  while (pendingSpeech.length) speechQueue.push(pendingSpeech.shift());
   if (!speechPlaying) processSpeechQueue();
 }
 
@@ -3076,69 +3286,6 @@ function getCoinSpeechName(sym) {
   if (COIN_NAME_MAP[sym]) return COIN_NAME_MAP[sym];
   if (/^[A-Z0-9]{2,8}$/.test(sym)) return spellSymbol(sym);
   return sym;
-}
-
-function doSpeak(text) {
-  try {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'zh-CN';
-    utter.rate = 1.0;
-    utter.pitch = 1.0;
-    utter.volume = 1.0;
-    if (zhVoice) utter.voice = zhVoice;
-
-    // 超时兜底：部分浏览器 onend 可能不触发，用定时器回收
-    let ended = false;
-    const finish = () => {
-      if (ended) return;
-      ended = true;
-      speechPlaying = false;
-      setTimeout(() => processSpeechQueue(), 300);
-    };
-
-    utter.onerror = (e) => {
-      console.warn('speechSynthesis error:', e.error);
-      finish();
-    };
-    utter.onend = finish;
-
-    // 估算文本时长（约 4-5 字/秒），加 3 秒上限作安全缓冲
-    const estMs = Math.min(Math.max(text.length * 200, 2000), 10000);
-    setTimeout(finish, estMs + 3000);
-
-    speechSynthesis.speak(utter);
-  } catch (e) {
-    console.warn('doSpeak exception:', e);
-    speechPlaying = false;
-    processSpeechQueue();
-  }
-}
-
-// 处理播报队列：依次播放，前一条播完再播下一条
-function processSpeechQueue() {
-  if (speechPlaying) return; // 正在播放中，等 onend 回调
-  if (!speechQueue.length) return;
-  const next = speechQueue.shift();
-  speechPlaying = true;
-  doSpeak(next);
-}
-
-function speakAlert(msg) {
-  if (!voiceEnabled || !('speechSynthesis' in window)) return;
-  // 清理 $ 符号 → 美元
-  const cleanMsg = msg.replace(/\$/g, ' 美元 ');
-  // 确保引擎已预热
-  if (!speechReady) {
-    initSpeechEngine();
-    pendingSpeech.push(cleanMsg);
-    return;
-  }
-  // 加入队列而非直接播放（避免多条预警互相打断）
-  speechQueue.push(cleanMsg);
-  // 如果没有正在播放，立即开始；否则等待当前播报结束
-  if (!speechPlaying) {
-    processSpeechQueue();
-  }
 }
 
 // ── Theme Toggle (Dark / Light) ──
