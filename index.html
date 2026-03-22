@@ -1738,6 +1738,8 @@
     <div class="toolbar-sep"></div>
     <div class="toolbar-group">
       <button class="icon-btn" id="soundToggle" onclick="toggleSound()" title="声音提醒">🔊</button>
+      <button class="icon-btn" id="voiceToggle" onclick="toggleVoice()" title="语音播报">🗣️</button>
+      <button class="icon-btn" id="spellToggle" onclick="toggleSpell()" title="币种名称读法：中文名称/逐字母">🀄</button>
       <button class="icon-btn" onclick="openAlertModal()" title="价格预警" style="position:relative">🔔<span class="alert-badge" id="alertBadge" style="display:none">0</span></button>
       <button class="icon-btn" onclick="openNotifyModal()" title="通知渠道设置">📱</button>
     </div>
@@ -1895,6 +1897,7 @@
       <div class="modal-actions">
         <button class="modal-btn-secondary" onclick="closeAlertModal()">关闭</button>
         <button class="modal-btn-secondary" onclick="testAlertSound()" title="测试声音" style="flex:0 0 auto;padding:10px 14px;">🔊 测试</button>
+        <button class="modal-btn-secondary" onclick="testVoiceAlert()" title="测试语音" style="flex:0 0 auto;padding:10px 14px;">🗣️ 语音</button>
         <button class="modal-btn-primary" onclick="addAlert()">添加预警</button>
       </div>
     </div>
@@ -1948,7 +1951,7 @@
       <kbd>V</kbd><span>切换视图模式</span>
       <kbd>S</kbd><span>切换声音</span>
       <kbd>T</kbd><span>切换深色/浅色主题</span>
-      <kbd>C</kbd><span>涨跌颜色反转</span>
+      <kbd>L</kbd><span>币种读法切换（中文/逐字母）</span>
       <kbd>Esc</kbd><span>关闭弹窗</span>
     </div>
     <div class="modal-actions" style="margin-top:16px;">
@@ -2091,6 +2094,8 @@ let cardView = localStorage.getItem('crypto_card_view') === '1';
 let priceHistory = {}; // { 'BTC': [p1, p2, ...] } for sparklines
 let prevPrices = {};   // { 'BTC': lastPrice } for flash animation
 let soundEnabled = localStorage.getItem('crypto_sound') !== '0'; // default on
+let voiceEnabled = localStorage.getItem('crypto_voice') === '1'; // default off (user opt-in)
+let spellSymbols = localStorage.getItem('crypto_spell') === '1'; // default off: Chinese name → letter-by-letter
 // audioCtx defined in Sound Engine section below
 let isLightTheme = localStorage.getItem('crypto_theme') === 'light';
 let colorInverted = localStorage.getItem('crypto_color_invert') === '1';
@@ -2970,6 +2975,172 @@ function toggleSound() {
   if (soundEnabled) playNotifySound(); // test sound
 }
 
+function toggleVoice() {
+  voiceEnabled = !voiceEnabled;
+  localStorage.setItem('crypto_voice', voiceEnabled ? '1' : '0');
+  document.getElementById('voiceToggle').textContent = voiceEnabled ? '🗣️' : '🔇';
+  if (voiceEnabled) {
+    initSpeechEngine();
+    speakAlert('语音播报已开启');
+  }
+}
+
+function toggleSpell() {
+  spellSymbols = !spellSymbols;
+  localStorage.setItem('crypto_spell', spellSymbols ? '1' : '0');
+  document.getElementById('spellToggle').textContent = spellSymbols ? '🔤' : '🀄';
+  document.getElementById('spellToggle').title = spellSymbols ? '币种名称读法：逐字母拼读' : '币种名称读法：中文名称';
+  showToast(spellSymbols ? '币种将逐字母拼读 (如 B-T-C)' : '常见币种使用中文名称 (如 比特币)');
+}
+
+// ── 语音播报引擎 ──
+let zhVoice = null;        // 缓存选中的中文语音
+let speechReady = false;   // 引擎是否已预热
+let pendingSpeech = [];    // 预热前的待播报队列
+let speechQueue = [];      // 播报队列（确保依次播放不中断）
+let speechPlaying = false; // 当前是否正在播报中
+
+function initSpeechEngine() {
+  if (!('speechSynthesis' in window)) return;
+  pickZhVoice();
+  // 预热：用极短文本激活引擎（空文本在部分浏览器会被忽略）
+  if (!speechReady) {
+    try {
+      const warmUp = new SpeechSynthesisUtterance('.');
+      warmUp.volume = 0.01;
+      warmUp.rate = 10; // 极快说完
+      warmUp.onend = () => { speechReady = true; flushPendingSpeech(); };
+      warmUp.onerror = () => { speechReady = true; flushPendingSpeech(); };
+      speechSynthesis.speak(warmUp);
+      setTimeout(() => {
+        if (!speechReady) { speechReady = true; flushPendingSpeech(); }
+      }, 600);
+    } catch {
+      speechReady = true;
+    }
+  }
+}
+
+function pickZhVoice() {
+  if (!('speechSynthesis' in window)) return;
+  const all = speechSynthesis.getVoices();
+  if (!all.length) return;
+  // 优先选 zh-CN
+  zhVoice = all.find(v => v.lang === 'zh-CN')
+    || all.find(v => v.lang.startsWith('zh'))
+    || all.find(v => v.lang.startsWith('cmn'))
+    || null;
+}
+
+// 加载语音列表（多策略）
+if ('speechSynthesis' in window) {
+  pickZhVoice();
+  speechSynthesis.onvoiceschanged = () => pickZhVoice();
+  // iOS 有时不触发 onvoiceschanged，反复尝试
+  setTimeout(pickZhVoice, 500);
+  setTimeout(pickZhVoice, 1500);
+  setTimeout(pickZhVoice, 3000);
+}
+
+function flushPendingSpeech() {
+  while (pendingSpeech.length) {
+    speechQueue.push(pendingSpeech.shift());
+  }
+  if (!speechPlaying) processSpeechQueue();
+}
+
+// 币种名称映射：常见币种用中文名，其余逐字母拼读
+const COIN_NAME_MAP = {
+  BTC: '比特币', ETH: '以太坊', BNB: '币安币', SOL: 'Solana', XRP: '瑞波币',
+  ADA: '艾达币', DOGE: '狗狗币', TRX: '波场', AVAX: '雪崩', DOT: '波卡',
+  LINK: 'Chainlink', MATIC: 'Polygon', UNI: 'Uniswap', SHIB: 'Shib',
+  LTC: '莱特币', BCH: '比特现金', ATOM: 'Cosmos', XLM: '恒星币',
+  NEAR: 'Near', APT: 'Aptos', ARB: 'Arbitrum', OP: 'Optimism',
+  FIL: 'Filecoin', INJ: 'Injective', SUI: 'Sui', PEPE: 'Pepe',
+  SEI: 'Sei', WLD: 'Worldcoin', TIA: 'Celestia', ORDI: 'ORDI',
+  AAVE: 'Aave', MKR: 'Maker', SNX: 'Synthetix', COMP: 'Compound',
+  CRV: 'Curve', LDO: 'Lido', STX: 'Stacks', IMX: 'Immutable',
+  RNDR: 'Render', FET: 'Fetch', USDT: 'USDT', USDC: 'USDC',
+};
+
+// 把币种符号逐字母拼读（如 BTC → B T C）
+function spellSymbol(sym) {
+  return sym.split('').join(' ');
+}
+
+// 获取币种的播报名称
+// spellSymbols=true → 全部逐字母拼读
+// spellSymbols=false → 有中文名用中文，无则逐字母拼读
+function getCoinSpeechName(sym) {
+  if (spellSymbols) return spellSymbol(sym);
+  if (COIN_NAME_MAP[sym]) return COIN_NAME_MAP[sym];
+  if (/^[A-Z0-9]{2,8}$/.test(sym)) return spellSymbol(sym);
+  return sym;
+}
+
+function doSpeak(text) {
+  try {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-CN';
+    utter.rate = 1.0;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    if (zhVoice) utter.voice = zhVoice;
+
+    // 超时兜底：部分浏览器 onend 可能不触发，用定时器回收
+    let ended = false;
+    const finish = () => {
+      if (ended) return;
+      ended = true;
+      speechPlaying = false;
+      setTimeout(() => processSpeechQueue(), 300);
+    };
+
+    utter.onerror = (e) => {
+      console.warn('speechSynthesis error:', e.error);
+      finish();
+    };
+    utter.onend = finish;
+
+    // 估算文本时长（约 4-5 字/秒），加 3 秒上限作安全缓冲
+    const estMs = Math.min(Math.max(text.length * 200, 2000), 10000);
+    setTimeout(finish, estMs + 3000);
+
+    speechSynthesis.speak(utter);
+  } catch (e) {
+    console.warn('doSpeak exception:', e);
+    speechPlaying = false;
+    processSpeechQueue();
+  }
+}
+
+// 处理播报队列：依次播放，前一条播完再播下一条
+function processSpeechQueue() {
+  if (speechPlaying) return; // 正在播放中，等 onend 回调
+  if (!speechQueue.length) return;
+  const next = speechQueue.shift();
+  speechPlaying = true;
+  doSpeak(next);
+}
+
+function speakAlert(msg) {
+  if (!voiceEnabled || !('speechSynthesis' in window)) return;
+  // 清理 $ 符号 → 美元
+  const cleanMsg = msg.replace(/\$/g, ' 美元 ');
+  // 确保引擎已预热
+  if (!speechReady) {
+    initSpeechEngine();
+    pendingSpeech.push(cleanMsg);
+    return;
+  }
+  // 加入队列而非直接播放（避免多条预警互相打断）
+  speechQueue.push(cleanMsg);
+  // 如果没有正在播放，立即开始；否则等待当前播报结束
+  if (!speechPlaying) {
+    processSpeechQueue();
+  }
+}
+
 // ── Theme Toggle (Dark / Light) ──
 function toggleTheme() {
   isLightTheme = !isLightTheme;
@@ -3132,6 +3303,25 @@ function testAlertSound() {
   if (isIOS) doVisualHaptic();
   showToast('🔊 播放测试声音' + (isIOS ? '（iOS 无振动，已使用视觉反馈代替）' : ''));
 }
+
+function testVoiceAlert() {
+  // 强制开启语音（用户主动点击，允许覆盖开关）
+  const wasOff = !voiceEnabled;
+  if (wasOff) {
+    voiceEnabled = true;
+    localStorage.setItem('crypto_voice', '1');
+    document.getElementById('voiceToggle').textContent = '🗣️';
+  }
+  initSpeechEngine();
+  // 直接在用户手势内调用 doSpeak（iOS 必须在 click 栈内调用）
+  const testCoinName = getCoinSpeechName('BTC');
+  doSpeak(`语音测试，${testCoinName}当前价格八万八千美元，预警已触发！`);
+  if (isIOS) {
+    showToast('🗣️ iOS 语音测试中…\n⚠️ iOS 自动预警时语音可能无法触发，建议开启通知渠道作为备用');
+  } else {
+    showToast('🗣️ 语音测试中…');
+  }
+}
 function closeAlertModal() {
   document.getElementById('alertModalOverlay').classList.remove('active');
 }
@@ -3219,6 +3409,11 @@ function checkAlerts(sym, currentPrice) {
 
       showToast(msg, 'alert');
 
+      // 语音播报（单独构造更口语化的文案，币种逐字母拼读）
+      const coinName = getCoinSpeechName(sym);
+      const voiceMsg = `${coinName}预警！当前价格${fmtRaw(currentPrice)}美元，已${a.dir === 'above' ? '涨破' : '跌穿'}${fmtRaw(a.price)}美元！`;
+      speakAlert(voiceMsg);
+
       // External notifications (WeChat / Email)
       sendExternalNotification(
         `🔔 Crypto Alert — ${sym}`,
@@ -3267,6 +3462,7 @@ function exportData() {
     currency,
     cardView,
     soundEnabled,
+    spellSymbols,
     isLightTheme,
     colorInverted,
     notifyConfig,
@@ -3294,6 +3490,7 @@ function importData(event) {
       }
       if (data.portfolio) { portfolio = data.portfolio; savePortfolio(); }
       if (data.soundEnabled != null) { soundEnabled = data.soundEnabled; localStorage.setItem('crypto_sound', soundEnabled ? '1' : '0'); document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇'; }
+      if (data.spellSymbols != null) { spellSymbols = data.spellSymbols; localStorage.setItem('crypto_spell', spellSymbols ? '1' : '0'); document.getElementById('spellToggle').textContent = spellSymbols ? '🔤' : '🀄'; }
       if (data.notifyConfig) { notifyConfig = data.notifyConfig; localStorage.setItem('crypto_notify', JSON.stringify(notifyConfig)); }
       if (data.coinApiMap) { coinApiMap = data.coinApiMap; saveCoinApiMap(); }
       if (data.activeApi != null) { activeApi = data.activeApi; localStorage.setItem('crypto_api', activeApi); }
@@ -3827,6 +4024,10 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       toggleColorInvert();
       break;
+    case 'l': case 'L':
+      e.preventDefault();
+      toggleSpell();
+      break;
   }
 });
 
@@ -4265,6 +4466,9 @@ openPortfolioModal = function() { origOpenPortfolio(); setTimeout(() => updateMo
 // ── Boot ──
 initSelects();
 document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇';
+document.getElementById('voiceToggle').textContent = voiceEnabled ? '🗣️' : '🔇';
+document.getElementById('spellToggle').textContent = spellSymbols ? '🔤' : '🀄';
+document.getElementById('spellToggle').title = spellSymbols ? '币种名称读法：逐字母拼读' : '币种名称读法：中文名称';
 applyTheme();
 applyColorInvert();
 render();
