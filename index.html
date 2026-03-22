@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -81,7 +82,11 @@
     color: var(--text);
     font-family: 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
     min-height: 100vh;
+    min-height: 100dvh;
     padding: 24px 16px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -176,7 +181,12 @@
     flex-wrap: wrap;
     justify-content: center;
     transition: border-color 0.3s;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
   }
+  .toolbar::-webkit-scrollbar { display: none; }
   .toolbar:hover {
     border-color: rgba(0, 212, 255, 0.3);
   }
@@ -825,9 +835,61 @@
     padding: 28px;
     width: 90%;
     max-width: 420px;
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 212, 255, 0.1);
     transform: translateY(20px);
     transition: transform 0.3s, background 0.4s;
+    position: relative;
+  }
+  .modal::-webkit-scrollbar { width: 4px; }
+  .modal::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+  /* Scroll hint shadow for modals with overflow content */
+  .modal-scroll-shadow {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 32px;
+    background: linear-gradient(to top, var(--modal-bg-b), transparent);
+    pointer-events: none;
+    margin: 0 -28px -28px;
+    border-radius: 0 0 16px 16px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .modal.modal-can-scroll .modal-scroll-shadow { opacity: 1; }
+  @media (max-width: 480px) {
+    .modal-scroll-shadow { margin: 0 -16px -24px; }
+  }
+
+  /* ── Modal Close Button ── */
+  .modal-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 10;
+    line-height: 1;
+  }
+  .modal-close-btn:hover, .modal-close-btn:active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0, 212, 255, 0.08);
   }
   .modal-overlay.active .modal {
     transform: translateY(0);
@@ -1049,17 +1111,25 @@
   }
 
   @media (max-width: 480px) {
-    body { padding: 16px 12px; }
+    body {
+      padding: 16px 12px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+    }
     .header { margin-bottom: 16px; }
     .toolbar { padding: 5px 8px; gap: 4px; }
     .toolbar-sep { height: 18px; }
+
+    /* Larger touch targets on mobile (44px min per Apple HIG) */
+    .icon-btn { width: 40px; height: 40px; font-size: 1.05rem; }
     .controls { gap: 8px; }
     .select-group { padding: 5px 10px; flex: 1; min-width: 140px; }
     .select-group label { font-size: 0.7rem; }
     .select-group select { font-size: 0.8rem; min-width: 60px; }
     .add-bar { margin-bottom: 16px; }
     .add-bar input { padding: 8px 12px; font-size: 0.85rem; }
-    .add-bar button { padding: 0 14px; font-size: 0.85rem; }
+    .add-bar button { padding: 0 14px; font-size: 0.85rem; min-height: 44px; }
     .table-head, .table-row { padding: 0 12px; gap: 6px; }
     .table-head { height: 38px; font-size: 0.65rem; }
     .table-row { height: 56px; }
@@ -1068,7 +1138,7 @@
     .api-badge { font-size: 0.5rem; padding: 0px 4px; margin-left: 4px; }
     .coin-price, .coin-high, .coin-low, .coin-vol { font-size: 0.78rem; }
     .coin-change { font-size: 0.8rem; }
-    .remove-btn { opacity: 1; left: 2px; font-size: 0.75rem; }
+    .remove-btn { opacity: 1; left: 2px; font-size: 0.75rem; width: 28px; height: 28px; }
     .footer { margin-top: 20px; font-size: 0.68rem; }
     .trending-section { margin-bottom: 16px; }
     .trending-group { padding: 10px 12px; }
@@ -1078,7 +1148,48 @@
     .trending-tag .tag-change { font-size: 0.62rem; }
     .trending-tag .tag-name { max-width: 50px; font-size: 0.56rem; }
     .trending-tags { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-    .toast { min-width: 200px; max-width: 280px; }
+
+    /* Toast: center on mobile so it's always visible */
+    .toast-container {
+      top: 12px;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      align-items: center;
+      width: calc(100% - 24px);
+      max-width: 360px;
+    }
+    .toast {
+      min-width: unset;
+      max-width: 100%;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Modal: ensure close button is accessible */
+    .modal { padding: 20px 16px 24px; max-height: 85vh; }
+    .modal h3 { padding-right: 36px; }
+    .modal-close-btn { top: 8px; right: 10px; width: 36px; height: 36px; font-size: 1.1rem; }
+
+    /* Modal action buttons: larger touch targets */
+    .modal-actions button { padding: 12px; font-size: 0.9rem; }
+
+    /* Alert modal: prevent overflow */
+    .alert-list { max-height: 140px; }
+
+    /* Portfolio modal: tighter spacing */
+    .portfolio-row { padding: 8px 0; }
+    .portfolio-row-actions button { padding: 6px 10px; font-size: 0.75rem; }
+
+    /* Notify channel: reduce padding */
+    .notify-channel { padding: 12px; margin-bottom: 10px; }
+    .notify-channel-desc { font-size: 0.65rem; }
+    .notify-channel input[type="text"],
+    .notify-channel input[type="email"] { padding: 10px; font-size: 0.82rem; }
+
+    /* Search dropdown: full width on mobile */
+    .search-dropdown { left: 0; right: 0; }
+    .search-item { padding: 12px 14px; }
   }
 
   @media (max-width: 360px) {
@@ -1297,6 +1408,7 @@
     width: 90%;
     text-align: center;
     animation: tipSlideUp 0.4s ease-out;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
   @keyframes tipSlideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
   .onboarding-tip p {
@@ -1560,6 +1672,15 @@
   body.light-theme .modal-btn-secondary {
     background: rgba(0, 136, 204, 0.06);
   }
+  body.light-theme .modal-close-btn {
+    background: rgba(0, 0, 0, 0.04);
+  }
+  body.light-theme .modal-close-btn:hover, body.light-theme .modal-close-btn:active {
+    background: rgba(0, 136, 204, 0.08);
+  }
+  body.light-theme .modal-scroll-shadow {
+    background: linear-gradient(to top, var(--modal-bg-b), transparent);
+  }
   body.light-theme .search-loading {
     color: var(--dim);
   }
@@ -1724,6 +1845,7 @@
 <!-- Alert Modal -->
 <div class="modal-overlay" id="alertModalOverlay" onclick="if(event.target===this)closeAlertModal()">
   <div class="modal">
+    <button class="modal-close-btn" onclick="closeAlertModal()" title="关闭">✕</button>
     <h3>🔔 价格预警管理</h3>
     <div id="iosAlertHint" style="display:none;margin-bottom:12px;padding:8px 12px;background:rgba(255,165,0,0.1);border:1px solid rgba(255,165,0,0.2);border-radius:8px;font-size:0.72rem;color:#e8a030;line-height:1.5;">
       📱 iOS 提示：系统不支持网页振动，已用屏幕闪烁代替。首次请点 <strong>🔊 测试</strong>按钮激活声音。建议开启「通知渠道」中的微信推送作为备用提醒。
@@ -1771,12 +1893,14 @@
         <button class="modal-btn-primary" onclick="addAlert()">添加预警</button>
       </div>
     </div>
+    <div class="modal-scroll-shadow"></div>
   </div>
 </div>
 
 <!-- Portfolio Modal -->
 <div class="modal-overlay" id="portfolioModalOverlay" onclick="if(event.target===this)closePortfolioModal()">
   <div class="modal" style="max-width:500px;">
+    <button class="modal-close-btn" onclick="closePortfolioModal()" title="关闭">✕</button>
     <h3>💰 持仓盈亏追踪</h3>
     <div class="portfolio-summary" id="portfolioSummary"></div>
     <div id="portfolioList" style="max-height:300px;overflow-y:auto;"></div>
@@ -1800,12 +1924,14 @@
         <button class="modal-btn-primary" onclick="addPortfolioEntry()">添加持仓</button>
       </div>
     </div>
+    <div class="modal-scroll-shadow"></div>
   </div>
 </div>
 
 <!-- Help Modal -->
 <div class="modal-overlay" id="helpModalOverlay" onclick="if(event.target===this)closeHelpModal()">
   <div class="modal" style="max-width:380px;">
+    <button class="modal-close-btn" onclick="closeHelpModal()" title="关闭">✕</button>
     <h3>⌨️ 快捷键</h3>
     <div class="help-shortcuts">
       <kbd>/</kbd><span>聚焦搜索框</span>
@@ -1829,6 +1955,7 @@
 <!-- Notification Settings Modal -->
 <div class="modal-overlay" id="notifyModalOverlay" onclick="if(event.target===this)closeNotifyModal()">
   <div class="modal" style="max-width:460px;">
+    <button class="modal-close-btn" onclick="closeNotifyModal()" title="关闭">✕</button>
     <h3>📱 通知渠道设置</h3>
     <p style="font-size:0.75rem;color:var(--muted);margin-bottom:16px;line-height:1.5;">
       配置后，价格预警触发时会自动发送通知到对应渠道。密钥仅保存在本地浏览器。
@@ -1918,6 +2045,7 @@
     <div class="modal-actions" style="margin-top:12px;">
       <button class="modal-btn-primary" onclick="closeNotifyModal()" style="flex:1;">完成</button>
     </div>
+    <div class="modal-scroll-shadow"></div>
   </div>
 </div>
 
@@ -3884,6 +4012,28 @@ async function testNotify(ch) {
     if (statusEl) { statusEl.textContent = '❌ ' + (e.message || '发送失败，请检查配置'); statusEl.className = 'notify-status err'; }
   }
 }
+
+// ── Modal Scroll Detection ──
+function updateModalScrollState(modal) {
+  if (!modal) return;
+  const canScroll = modal.scrollHeight > modal.clientHeight + 5;
+  modal.classList.toggle('modal-can-scroll', canScroll);
+}
+
+// Observe modals for scroll state changes
+document.querySelectorAll('.modal').forEach(modal => {
+  const observer = new MutationObserver(() => updateModalScrollState(modal));
+  observer.observe(modal, { childList: true, subtree: true, characterData: true });
+  modal.addEventListener('scroll', () => updateModalScrollState(modal));
+});
+
+// Update scroll state when modals open
+const origOpenAlert = openAlertModal;
+openAlertModal = function() { origOpenAlert(); setTimeout(() => updateModalScrollState(document.querySelector('#alertModalOverlay .modal')), 50); };
+const origOpenNotify = openNotifyModal;
+openNotifyModal = function() { origOpenNotify(); setTimeout(() => updateModalScrollState(document.querySelector('#notifyModalOverlay .modal')), 50); };
+const origOpenPortfolio = openPortfolioModal;
+openPortfolioModal = function() { origOpenPortfolio(); setTimeout(() => updateModalScrollState(document.querySelector('#portfolioModalOverlay .modal')), 50); };
 
 // ── Boot ──
 initSelects();
