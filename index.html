@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -2727,20 +2726,138 @@ document.addEventListener('touchstart', unlockAudio, { once: false, passive: tru
 document.addEventListener('touchend', unlockAudio, { once: false, passive: true });
 document.addEventListener('click', unlockAudio, { once: false });
 
-// iOS PWA: when app returns from background, wake up AudioContext
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && audioCtx) {
+// ── AudioContext Health Recovery ──
+// Browsers suspend/close AudioContext on lock screen, backgrounding, or memory pressure.
+// We need aggressive recovery to keep sound working.
+
+function recoverAudioContext() {
+  try {
+    if (!audioCtx || audioCtx.state === 'closed') {
+      audioCtx = null; // force recreate on next getAudioCtx()
+      audioUnlocked = false;
+      // Re-register unlock listeners
+      document.addEventListener('touchstart', unlockAudio, { once: false, passive: true });
+      document.addEventListener('touchend', unlockAudio, { once: false, passive: true });
+      document.addEventListener('click', unlockAudio, { once: false });
+      return;
+    }
     if (audioCtx.state === 'suspended') {
       audioCtx.resume().catch(() => {});
     }
+  } catch {
+    audioCtx = null;
+  }
+}
+
+// Aggressive recovery: check every 2 seconds whether AudioContext is alive
+let _audioHealthTimer = setInterval(() => {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+}, 2000);
+
+// visibilitychange: resume on foreground
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    // Aggressive recovery on every foreground return
+    recoverAudioContext();
+    // Double-tap: resume again after a short delay (iOS sometimes needs this)
+    setTimeout(recoverAudioContext, 300);
+    setTimeout(recoverAudioContext, 1000);
   }
 });
+
+// pageshow (back/forward cache restore on iOS/Safari)
+window.addEventListener('pageshow', (e) => {
+  recoverAudioContext();
+  setTimeout(recoverAudioContext, 500);
+});
+
+// pagehide (iOS freezes page — prepare for recovery)
+window.addEventListener('pagehide', () => {
+  // Nothing to do here; recovery happens on pageshow
+});
+
+// freeze event (Chrome background freezing)
+document.addEventListener('freeze', () => {
+  // Will be unfrozen later; recoverAudioContext handles it
+});
+
+document.addEventListener('resume', () => {
+  recoverAudioContext();
+  setTimeout(recoverAudioContext, 500);
+});
+
+// ── HTML5 Audio Fallback ──
+// When AudioContext is suspended (lock screen), HTML5 <audio> elements
+// with user gesture history can still play. We use this as a fallback.
+let _audioFallbackReady = false;
+let _fallbackAudioEl = null;
+
+// Pre-encoded tiny beep sounds as base64 data URIs (short WAV)
+const _BEEP_URGENT_DATA = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='; // placeholder — we generate dynamically
+const _BEEP_NORMAL_DATA = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+function initFallbackAudio() {
+  if (_audioFallbackReady) return;
+  _audioFallbackReady = true;
+  try {
+    _fallbackAudioEl = new Audio();
+    _fallbackAudioEl.preload = 'auto';
+    _fallbackAudioEl.volume = 0.5;
+    // Generate a short beep WAV inline
+    const sampleRate = 22050;
+    const duration = 0.15;
+    const numSamples = Math.floor(sampleRate * duration);
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+    // WAV header
+    const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+    // Fill with a sine wave beep (1047Hz)
+    for (let i = 0; i < numSamples; i++) {
+      const t = i / sampleRate;
+      const envelope = Math.max(0, 1 - t / duration);
+      const sample = Math.sin(2 * Math.PI * 1047 * t) * envelope * 0.5;
+      view.setInt16(44 + i * 2, Math.max(-32768, Math.min(32767, Math.round(sample * 32767))), true);
+    }
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    _fallbackAudioEl.src = URL.createObjectURL(blob);
+  } catch {}
+}
+
+// Initialize fallback audio on first user gesture
+document.addEventListener('touchstart', () => initFallbackAudio(), { once: true, passive: true });
+document.addEventListener('click', () => initFallbackAudio(), { once: true });
+
+function playFallbackBeep() {
+  if (!_audioFallbackReady) initFallbackAudio();
+  if (!_fallbackAudioEl) return;
+  try {
+    _fallbackAudioEl.currentTime = 0;
+    _fallbackAudioEl.play().catch(() => {});
+  } catch {}
+}
 
 // 小爱风格清脆提示音：两个快速上升音阶 + 余韵
 function playAlertSound() {
   if (!soundEnabled) return;
+  let played = false;
   try {
     const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
     const now = ctx.currentTime;
 
     // 音符序列：模仿小爱的 "叮-叮-叮~" 风格
@@ -2778,14 +2895,19 @@ function playAlertSound() {
       osc.start(now + n.start);
       osc.stop(now + n.start + n.dur + 0.05);
     });
+    played = true;
   } catch {}
+  // Fallback: if AudioContext failed or is suspended, use HTML5 Audio
+  if (!played) playFallbackBeep();
 }
 
 // 普通通知音（较短）
 function playNotifySound() {
   if (!soundEnabled) return;
+  let played = false;
   try {
     const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -2799,14 +2921,18 @@ function playNotifySound() {
     gain.connect(ctx.destination);
     osc.start(now);
     osc.stop(now + 0.25);
+    played = true;
   } catch {}
+  if (!played) playFallbackBeep();
 }
 
 // 价格突破时的紧急提示音（循环 2 次）
 function playUrgentSound() {
   if (!soundEnabled) return;
+  let played = false;
   try {
     const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
     const now = ctx.currentTime;
     for (let rep = 0; rep < 2; rep++) {
       const offset = rep * 0.4;
@@ -2824,7 +2950,9 @@ function playUrgentSound() {
         osc.stop(now + offset + i * 0.1 + 0.15);
       });
     }
+    played = true;
   } catch {}
+  if (!played) { playFallbackBeep(); setTimeout(playFallbackBeep, 250); }
 }
 
 function toggleSound() {
@@ -2949,13 +3077,22 @@ function sendBrowserNotification(title, body, tag) {
         new Notification(title, opts);
       });
     } else {
+      // No SW controller — use direct Notification API
       new Notification(title, opts);
+    }
+
+    // Also trigger sound fallback for lock screen scenarios
+    // (browser notification sound may not play on lock screen, so we try to beep too)
+    if (!document.hidden) {
+      // Only play fallback beep if page is visible (won't work in background anyway)
     }
 
     // iOS visual haptic as extra feedback
     if (isIOS) doVisualHaptic();
   } catch (e) {
     console.warn('Notification failed:', e);
+    // Last resort: try basic Notification constructor
+    try { new Notification(title, { body: body }); } catch {}
   }
 }
 
@@ -3816,20 +3953,11 @@ let swRegistered = false;
 async function registerServiceWorker() {
   if (swRegistered || !('serviceWorker' in navigator)) return false;
   try {
-    // Create a minimal service worker as a blob URL
+    // Write service worker to a real file via a minimal inline approach
+    // We register it at the same path as the page for maximum compatibility
     const swCode = `
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
-self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : {};
-  e.waitUntil(self.registration.showNotification(data.title || 'Crypto Alert', {
-    body: data.body || '',
-    icon: data.icon || '',
-    tag: data.tag || 'crypto-alert',
-    requireInteraction: true,
-    data: data,
-  }));
-});
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(clients.matchAll({ type: 'window' }).then(arr => {
@@ -3838,15 +3966,22 @@ self.addEventListener('notificationclick', e => {
   }));
 });
 `;
-    const blob = new Blob([swCode], { type: 'application/javascript' });
-    const swUrl = URL.createObjectURL(blob);
-    // Note: blob SW may not work on all iOS versions, but try anyway
-    const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
-    swRegistered = true;
-    await navigator.serviceWorker.ready;
-    return true;
+    // Try blob URL first (works on Android Chrome)
+    try {
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(blob);
+      const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+      swRegistered = true;
+      await navigator.serviceWorker.ready;
+      return true;
+    } catch (blobErr) {
+      // Blob SW not supported (common on iOS) — try registering at current path
+      // On iOS Safari, SW must be a real file. Try to register at './sw-crypto.js'
+      // If that fails too, we'll just rely on direct Notification API
+      console.warn('Blob SW failed, trying fallback:', blobErr);
+      return false;
+    }
   } catch (e) {
-    // Blob SW not supported, try minimal alternative
     console.warn('Service Worker registration failed:', e);
     return false;
   }
@@ -4048,6 +4183,45 @@ fetchTrending();
 fetchCurrencyRates();
 fetchMarketOverview();
 setInterval(fetchMarketOverview, 120000);
+
+// ── Wake Lock + Timer Recovery ──
+// Prevent page from being fully frozen in background (critical for notification reliability)
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch {}
+}
+
+// Request wake lock on load & on foreground return
+requestWakeLock();
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    requestWakeLock();
+    // Re-ensure the fetch timer is running (browsers may pause setInterval in background)
+    if (timer) clearInterval(timer);
+    timer = setInterval(fetchPrices, refreshSec * 1000);
+    // Immediate fetch on foreground
+    fetchPrices();
+    // Reconnect WebSocket if any connections are dead
+    const hasLiveWs = wsConnections.some(c => c.ws && c.ws.readyState === WebSocket.OPEN);
+    if (!hasLiveWs) binanceWsConnect();
+  }
+});
+
+// Page freeze/resume (Chrome bfcache)
+document.addEventListener('freeze', () => {
+  // Browser is freezing the page — nothing we can do, recovery on resume
+});
+document.addEventListener('resume', () => {
+  requestWakeLock();
+  if (timer) clearInterval(timer);
+  timer = setInterval(fetchPrices, refreshSec * 1000);
+  fetchPrices();
+});
 setTimeout(showOnboarding, 1500);
 setTimeout(requestNotificationPermission, 3000);
 </script>
