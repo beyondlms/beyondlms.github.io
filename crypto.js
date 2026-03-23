@@ -1510,7 +1510,7 @@ function checkAlerts(sym, currentPrice) {
 
       // 语音播报（单独构造更口语化的文案，币种逐字母拼读）
       const coinName = getCoinSpeechName(sym);
-      const voiceMsg = `${coinName}预警！当前价格${fmtRaw(currentPrice)}美元，已${a.dir === 'above' ? '涨破' : '跌穿'}${fmtRaw(a.price)}美元！`;
+      const voiceMsg = `${coinName}预警！当前价格${fmtRaw(currentPrice)}美元，已${a.dir === 'above' ? '突破' : '跌穿'}${fmtRaw(a.price)}美元！`;
       speakAlert(voiceMsg);
 
       // External notifications (WeChat / Email)
